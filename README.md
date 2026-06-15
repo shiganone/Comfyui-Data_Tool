@@ -2,10 +2,11 @@
 
 [简体中文](#comfyui-data-tool) | [English](#english)
 
-这是一个为 ComfyUI 设计的通用数据处理、骨骼姿态解析与二进制数据快速读写的综合工具箱。
+这是一套为 ComfyUI 设计的用于常用数据处理的工具节点。
 
-*   **智能参数提示**：每个节点右上角均有“❓”按钮。点击即可展开详细的说明面板，解答各参数的功能。
-*   **免配置自动依赖**：启动时会自动安装 `blosc` 和 `zstandard` 这两个压缩算法包。会优先从准备好的离线包 `wheel` 文件夹寻找对应 Python 版本安装，如果没有对应版本则自动联网下载安装。
+每个节点右上角均有“❓”按钮。点击即可展开详细的说明面板，解答各参数的功能。
+
+启动时会自动安装 `blosc` 和 `zstandard` 这两个压缩算法包。会优先从准备好的离线包 `wheel` 文件夹寻找对应 Python 版本安装，如果没有对应版本则自动联网下载安装。
 
 ---
 
@@ -60,10 +61,11 @@ git clone https://github.com/shiganone/Comfyui-Data_Tool.git
 
 [简体中文](#comfyui-data-tool) | [English](#english)
 
-A comprehensive toolkit designed for ComfyUI, providing general data manipulation, pose estimation parsing, and fast binary serialization.
+A suite of utility nodes for common data processing in ComfyUI.
 
-*   **Smart Parameter Help**: Each node has a "❓" button on the top right. Click it to expand a detailed help panel explaining the functions of each parameter.
-*   **Auto Dependencies Installer**: Automatically installs the `blosc` and `zstandard` compression packages on startup. It prioritizes local wheel files in the `wheel` folder matching your Python version. If no matching version is found, it will automatically download and install from the network.
+Each node has a "❓" button on the top right. Click it to expand a detailed help panel explaining the functions of each parameter.
+
+Automatically installs the `blosc` and `zstandard` compression packages on startup. It prioritizes local wheel files in the `wheel` folder matching your Python version. If no matching version is found, it will automatically download and install from the network.
 
 ---
 
