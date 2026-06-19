@@ -1221,6 +1221,12 @@ class UniversalPoseRenderer:
         if not keypoints:
             return (torch.zeros((1, 64, 64, 3), dtype=torch.float32),)
 
+        if isinstance(keypoints, dict) and "people" in keypoints:
+            keypoints = [keypoints]
+        elif not isinstance(keypoints, list):
+            print("UniversalPoseRenderer: 输入数据格式不正确，已回退为黑图。")
+            return (torch.zeros((1, 64, 64, 3), dtype=torch.float32),)
+
         if background_image is not None:
             if len(keypoints) != background_image.shape[0]:
                 raise ValueError(f"通用型pose渲染报错: 背景图像批次长度 ({background_image.shape[0]}) 与 骨骼批次长度 ({len(keypoints)}) 不一致！")
