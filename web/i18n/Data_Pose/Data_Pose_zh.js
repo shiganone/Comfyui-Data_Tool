@@ -22,7 +22,8 @@ Object.assign(window.DataTool_I18N.ZH, {
     • <b>宽度/高度</b>: 重映射的目标分辨率。<br>
     • <b>缩放策略</b>:<br>
     &nbsp;&nbsp;·拉伸(Stretch)：改变纵横比，拉伸宽高，铺满至新分辨率。<br>
-    &nbsp;&nbsp;·自适应(Fit)：保持纵横比，铺满新分辨率，不裁切。<br>
+    &nbsp;&nbsp;·自适应(Fit)：保持纵横比，铺满新分辨率，不足部分留白。<br>
+    &nbsp;&nbsp;·裁切(Crop)：保持纵横比，铺满新分辨率，超出部分裁切。<br>
     &nbsp;&nbsp;·保持(Keep)：保持原始画面，仅改变画布。<br>
     &nbsp;&nbsp;·对齐高度(Fit Height)：保持纵横比，对齐新分辨率高度，宽度裁切或留白。<br>
     &nbsp;&nbsp;·对齐宽度(Fit Width)：保持纵横比，对齐新分辨率宽度，高度裁切或留白。<br>
@@ -174,7 +175,7 @@ Object.assign(window.DataTool_I18N.ZH, {
 </div>`
     },
 
-    "NLF_Direction_Modifier": {
+    "Direction_Modifier": {
         title: "🧭 朝向修改器",
         widgets: {
             "target_direction": "目标朝向",
@@ -206,6 +207,36 @@ Object.assign(window.DataTool_I18N.ZH, {
 </div>`
     },
 
+    "PoseBlackBackgroundOptions": {
+        title: "pose黑背景选项",
+        widgets: {
+            "body_point_radius": "躯干点遮罩半径",
+            "body_hull": "躯干内补",
+            "body_infill_expand": "躯干内补外扩",
+            "face_point_radius": "面部点遮罩半径",
+            "face_hull": "面部内补",
+            "face_infill_expand": "面部内补外扩",
+            "hand_point_radius": "手部点遮罩半径",
+            "hand_hull": "手部内补",
+            "hand_infill_expand": "手部内补外扩",
+            "foot_point_radius": "脚部点遮罩半径",
+            "foot_hull": "脚部内补",
+            "foot_infill_expand": "脚部内补外扩"
+        },
+        slot_labels: { "POSE_BLACK_BACKGROUND": "pose黑背景选项", },
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">节点功能说明</h3>
+    为姿态渲染提供高度定制化的姿态黑背景配置。<br>
+    <b>输出</b><br>
+    pose黑背景选项：连接 通用型pose渲染 节点的对应接口。<br>
+    <b>参数</b><br>
+    • <b>[躯干/面部/手部/脚部] 点遮罩半径</b>: 控制对应部位的关键点和连线的黑色背景扩张半径。<br>
+    • <b>[躯干/面部/手部/脚部] 内补开关</b>: 开启后，计算有效关键点的外围多边形，使用黑色填充。（躯干仅基于锁骨及肩髋 5 个躯干点计算）<br>
+    • <b>[躯干/面部/手部/脚部] 内补外扩</b>: 控制对应部位的黑色内补多边形向外围均匀延展的像素距离。
+</div>`
+    },
+
     "UniversalPoseRenderer": {
         title: "🎨 通用型pose渲染",
         widgets: {
@@ -216,9 +247,9 @@ Object.assign(window.DataTool_I18N.ZH, {
             "connect_feet": "脚部连线",
             "score_threshold": "分数阈值",
             "stick_width": "线条宽度",
-            "face_point_size": "面部点大小"
+            "face_point_size": "面部点大小",
         },
-        slot_labels: { "background_image": "背景图像", "IMAGE": "图像" },
+        slot_labels: { "background_image": "背景图像", "pose_black_background": "pose黑背景选项", "IMAGE": "图像" },
         help: `
 <div style="font-family: Arial, sans-serif;">
     <h3 style="margin-top: 0; color: #4af;">🎨 节点功能说明</h3>
@@ -226,6 +257,7 @@ Object.assign(window.DataTool_I18N.ZH, {
     <b>输入</b><br>
     keypoints：被绘制的姿态数据。<br>
     背景图像 (可选)：背景图像批次。若不连，则默认渲染在纯黑背景上。<br>
+    pose黑背景选项 (可选)：当连入背景图像时，可自定义设置关键点黑色背景。<br>
     <b>输出</b><br>
     图像：渲染后的姿态图像。<br>
     <b>参数</b><br>

@@ -22,7 +22,8 @@ Object.assign(window.DataTool_I18N.EN, {
     • <b>Width/Height</b>: Target resolution for remapping.<br>
     • <b>Resize Mode</b>:<br>
     &nbsp;&nbsp;· Stretch: Changes aspect ratio, stretches width and height to fill.<br>
-    &nbsp;&nbsp;· Fit: Maintains aspect ratio, fits into new resolution without cropping.<br>
+    &nbsp;&nbsp;· Fit: Maintains aspect ratio, fits into the new resolution, padding any remaining areas with empty space.<br>
+    &nbsp;&nbsp;· Crop: Maintains aspect ratio, fills the new resolution, cropping any excess areas.<br>
     &nbsp;&nbsp;· Keep: Maintains original framing, only changes canvas size.<br>
     &nbsp;&nbsp;· Fit Height: Maintains aspect ratio, matches new height, width cropped/padded.<br>
     &nbsp;&nbsp;· Fit Width: Maintains aspect ratio, matches new width, height cropped/padded.<br>
@@ -166,7 +167,7 @@ Object.assign(window.DataTool_I18N.EN, {
 </div>`
     },
 
-    "NLF_Direction_Modifier": {
+    "Direction_Modifier": {
         title: "🧭 Direction Modifier",
         widgets: {
             "target_direction": "Target Direction",
@@ -197,34 +198,39 @@ Object.assign(window.DataTool_I18N.EN, {
 </div>`
     },
 
+    "PoseBlackBackgroundOptions": {
+        title: "Pose Black Background Options",
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">Node Functionality</h3>
+    Provides highly customizable black background configurations for pose rendering.<br>
+    <b>Outputs</b><br>
+    POSE_BLACK_BACKGROUND: Connects to the corresponding input of the UniversalPoseRenderer node.<br>
+    <b>Parameters</b><br>
+    • <b>[body/face/hand/foot]_point_radius</b>: Controls the expansion radius of the black background under the keypoints and connections of the corresponding body part.<br>
+    • <b>[body/face/hand/foot]_hull</b>: When enabled, calculates the bounding polygon (convex hull) of the valid keypoints and fills it with black. (The body hull is calculated based solely on 5 core torso points: collarbone, shoulders, and hips).<br>
+    • <b>[body/face/hand/foot]_infill_expand</b>: Controls the outward expansion distance (in pixels) for the black infill polygon of the corresponding body part.
+</div>`
+    },
+
     "UniversalPoseRenderer": {
         title: "🎨 Universal Pose Renderer",
-        widgets: {
-            "draw_body": "Draw Body",
-            "draw_hands": "Draw Hands",
-            "draw_face": "Draw Face",
-            "draw_feet": "Draw Feet",
-            "connect_feet": "Connect Feet",
-            "score_threshold": "Score Threshold",
-            "stick_width": "Stick Width",
-            "face_point_size": "Face Point Size"
-        },
-        slot_labels: { "background_image": "Background Image", "IMAGE": "IMAGE" },
         help: `
 <div style="font-family: Arial, sans-serif;">
     <h3 style="margin-top: 0; color: #4af;">🎨 Node Functionality</h3>
     Removes safety point-count validations for face and foot points, supporting any number of points. Seamlessly renders SDPose, ViTPose, OpenPose, and other skeleton data.<br>
     <b>Inputs</b><br>
     keypoints: The pose data to be rendered.<br>
-    Background Image (Optional): A batch of background images. If disconnected, renders on a pure black background by default.<br>
+    background_image (Optional): A batch of background images. If disconnected, renders on a pure black background by default.<br>
+    POSE_BLACK_BACKGROUND (Optional): When a background image is connected, you can customize the black background for keypoints.<br>
     <b>Outputs</b><br>
     IMAGE: The rendered pose image batch.<br>
     <b>Parameters</b><br>
-    • <b>Draw Body / Hands / Face / Feet</b>: Toggles for rendering specific body parts.<br>
-    • <b>Connect Feet</b>: When enabled, draws lines connecting the foot points to the ankle points.<br>
-    • <b>Score Threshold</b>: Confidence score filter; points below this threshold will not be drawn.<br>
-    • <b>Stick Width</b>: The line thickness for skeletal connections.<br>
-    • <b>Face Point Size</b>: The pixel radius for the white facial points.
+    • <b>draw_body / hands / face / feet</b>: Toggles for rendering specific body parts.<br>
+    • <b>connect_feet</b>: When enabled, draws lines connecting the foot points to the ankle points.<br>
+    • <b>score_threshold</b>: Confidence score filter; points below this threshold will not be drawn.<br>
+    • <b>stick_width</b>: The line thickness for skeletal connections.<br>
+    • <b>face_point_size</b>: The pixel radius for the white facial points.
 </div>`
-    }
+    },
 });
