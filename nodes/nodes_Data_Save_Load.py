@@ -5,6 +5,7 @@ import torch
 import folder_paths
 import comfy.model_management as mm
 import pickle
+import server
 from ..utils import get_file_list, make_serializable, get_new_file_path, calculate_slice_indices
 
 offload_device = mm.unet_offload_device()
@@ -18,7 +19,7 @@ class SaveNLFPose:
     FUNCTION = "save"
     CATEGORY = "Data_Tool/Data_Save_Load"
 
-    # 🔥 核心修复：加入 IS_CHANGED 魔法，强制 ComfyUI 每次点击运行都必须执行该节点，禁止缓存跳过！
+    # 加入 IS_CHANGED，强制 ComfyUI 每次点击运行都必须执行该节点，禁止缓存跳过
     @classmethod
     def IS_CHANGED(s, **kwargs):
         return float("NaN")
@@ -29,6 +30,9 @@ class SaveNLFPose:
         output_dir = os.path.join(folder_paths.get_output_directory(), "nlfpose_data")
         file_path, display_path = get_new_file_path(output_dir, filename_prefix, ext=".json")
         with open(file_path, 'w') as f: json.dump({'joints3d_nonparam': [data]}, f)
+
+        server.PromptServer.instance.send_sync("datatool.file_saved", {"folder": "nlfpose_data"})
+
         return {"ui": {"update_path": [display_path]}, "result": (nlf_poses,)}
 
 
@@ -89,6 +93,9 @@ class SaveKeypoints:
         output_dir = os.path.join(folder_paths.get_output_directory(), "keypoints_data")
         file_path, display_path = get_new_file_path(output_dir, filename_prefix, ext=".json")
         with open(file_path, 'w') as f: json.dump(serializable_data, f)
+
+        server.PromptServer.instance.send_sync("datatool.file_saved", {"folder": "keypoints_data"})
+
         return {"ui": {"update_path": [display_path]}, "result": (keypoints,)}
 
 
@@ -235,6 +242,8 @@ class SaveMaskBinTensor:
         }
         with open(file_path, "wb") as f:
             pickle.dump(payload, f)
+
+        server.PromptServer.instance.send_sync("datatool.file_saved", {"folder": "mask_bin_tensor_data"})
             
         return {"ui": {"update_path":[display_path]}, "result": (mask,)}
 
@@ -395,6 +404,8 @@ class SaveImageBinTensor:
         }
         with open(file_path, "wb") as f:
             pickle.dump(payload, f)
+
+        server.PromptServer.instance.send_sync("datatool.file_saved", {"folder": "image_bin_tensor_data"})
             
         return {"ui": {"update_path":[display_path]}, "result": (images,)}
 
@@ -561,6 +572,8 @@ class SaveLatentBinTensor:
         with open(file_path, "wb") as f:
             pickle.dump(payload, f)
             
+        server.PromptServer.instance.send_sync("datatool.file_saved", {"folder": "latent_bin_tensor_data"})
+
         return {"ui": {"update_path":[display_path]}, "result": (latent,)}
 
 

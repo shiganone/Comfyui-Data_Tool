@@ -10,7 +10,7 @@ try:
     HAS_CV2 = True
 except ImportError:
     HAS_CV2 = False
-    print("\n⚠️ [Data_Tool Warning] 未检测到 OpenCV (cv2) 库，万能渲染器已降级为纯 Numpy 慢速模式！建议在环境内执行 pip install opencv-python 以获得极致渲染速度。\n")
+    print("\n⚠️ [Data_Tool Warning] 未检测到 OpenCV (cv2) 库，通用型pose渲染已降级为纯 Numpy 慢速模式！建议在环境内执行 pip install opencv-python 以获得极致渲染速度。\n")
 
 
 # ================= 🚀 2D Pose 分辨率重映射节点 =================
@@ -1223,14 +1223,14 @@ class UniversalPoseRenderer:
 
         if background_image is not None:
             if len(keypoints) != background_image.shape[0]:
-                raise ValueError(f"万能渲染器报错: 背景图像批次长度 ({background_image.shape[0]}) 与 骨骼批次长度 ({len(keypoints)}) 不一致！")
+                raise ValueError(f"通用型pose渲染报错: 背景图像批次长度 ({background_image.shape[0]}) 与 骨骼批次长度 ({len(keypoints)}) 不一致！")
             
             if len(keypoints) > 0:
                 h_kp = keypoints[0].get("canvas_height", 512)
                 w_kp = keypoints[0].get("canvas_width", 512)
                 img_h, img_w = background_image.shape[1], background_image.shape[2]
                 if img_h != h_kp or img_w != w_kp:
-                    raise ValueError(f"万能渲染器报错: 背景图像分辨率 ({img_w}x{img_h}) 与 骨骼画布分辨率 ({w_kp}x{h_kp}) 不一致！请使用 RescaleKeypoints 节点对齐骨骼分辨率，或者裁剪图像。")
+                    raise ValueError(f"通用型pose渲染报错: 背景图像分辨率 ({img_w}x{img_h}) 与 骨骼画布分辨率 ({w_kp}x{h_kp}) 不一致！请使用 RescaleKeypoints 节点对齐骨骼分辨率，或者裁剪图像。")
 
             bg_np_batch = (background_image * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
         else:

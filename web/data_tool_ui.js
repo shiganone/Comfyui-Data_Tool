@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js"; // 🔥 新增 API 引入用于 WebSocket
 
 // 🌟 1. 防御性初始化全局翻译数据总线 🌟
 window.DataTool_I18N = window.DataTool_I18N || { ZH: {}, EN: {} };
@@ -9,6 +10,21 @@ const isZH = (localStorage.getItem("comfy_language") === "zh-CN") ||
 
 app.registerExtension({
     name: "DataTool.UI_Core",
+    
+    // 🔥 新增：注册全局 WebSocket 监听器 (全自动刷新方案)
+    setup() {
+        api.addEventListener("datatool.file_saved", (event) => {
+            const updatedFolder = event.detail.folder;
+            if (!app.graph) return;
+            // 遍历当前画布上的所有节点，只让属于我们且文件夹匹配的加载节点执行局部静默重扫
+            for (const node of app.graph._nodes) {
+                if (node.isDataToolLoadNode && node.folderType === updatedFolder && node.refreshLoadNode) {
+                    node.refreshLoadNode();
+                }
+            }
+        });
+    },
+
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
 
         // ================= 【一】 宽度紧箍咒 =================
@@ -21,7 +37,7 @@ app.registerExtension({
             };
         }
 
-        // ================= 【二】 加载节点：上传按钮注入与映射修复 =================
+        // ================= 【二】 加载节点：上传按钮、局部刷新与映射修复 =================
         const loadNodes = ["LoadNLFPose", "LoadKeypoints", "LoadMaskBinTensor", "LoadImageBinTensor", "LoadLatentBinTensor"];
         if (loadNodes.includes(nodeData.name)) {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -33,23 +49,48 @@ app.registerExtension({
                 fileInput.style.display = "none";
                 this.element_to_cleanup = fileInput;
 
-                let folderType = nodeData.name === "LoadNLFPose" ? "nlfpose_data" :
+                // 配置元数据
+                this.folderType = nodeData.name === "LoadNLFPose" ? "nlfpose_data" :
                     nodeData.name === "LoadKeypoints" ? "keypoints_data" :
                         nodeData.name === "LoadMaskBinTensor" ? "mask_bin_tensor_data" :
                             nodeData.name === "LoadImageBinTensor" ? "image_bin_tensor_data" : "latent_bin_tensor_data";
+
+                let ext = (nodeData.name === "LoadMaskBinTensor" || nodeData.name === "LoadImageBinTensor" || nodeData.name === "LoadLatentBinTensor") ? ".pkl" : ".json";
 
                 let widgetName = nodeData.name === "LoadNLFPose" ? "pose_file" :
                     nodeData.name === "LoadKeypoints" ? "keypoints_file" :
                         nodeData.name === "LoadMaskBinTensor" ? "mask_file" :
                             nodeData.name === "LoadImageBinTensor" ? "image_file" : "latent_file";
 
+                this.isDataToolLoadNode = true; // 烙上标记，方便 WebSocket 寻找
+
+                // 🔥 核心：封装局部极速刷新方法，供按钮和 WebSocket 共同调用
+                this.refreshLoadNode = async () => {
+                    try {
+                        const resp = await fetch(`/data_tool/list_files?type=${this.folderType}&ext=${ext}`);
+                        if (resp.ok) {
+                            const newFiles = await resp.json();
+                            const widget = this.widgets?.find(w => w.name === widgetName);
+                            if (widget) {
+                                const oldVal = widget.value;
+                                widget.options.values = newFiles;
+                                // 安全校验：如果旧文件被删了，或者列表更新了，防止选定一个不存在的值
+                                if (!newFiles.includes(oldVal) && newFiles.length > 0) {
+                                    widget.value = newFiles[0];
+                                }
+                                app.graph.setDirtyCanvas(true);
+                            }
+                        }
+                    } catch (e) { console.warn("[Data_Tool] 局部刷新失败:", e); }
+                };
+
                 fileInput.onchange = async () => {
                     if (fileInput.files.length > 0) {
                         const body = new FormData();
                         body.append("file", fileInput.files[0]);
-                        body.append("type", folderType);
+                        body.append("type", this.folderType);
                         try {
-                            const resp = await fetch("/nlf_datatool/upload", { method: "POST", body: body });
+                            const resp = await fetch("/data_tool/upload", { method: "POST", body: body });
                             if (resp.ok) {
                                 const data = await resp.json();
                                 const widget = this.widgets?.find(w => w.name === widgetName);
@@ -66,6 +107,9 @@ app.registerExtension({
                 document.body.append(fileInput);
 
                 this.addWidget("button", "📂 上传文件 (Upload)", "upload", () => { fileInput.click(); });
+                // 注入手动刷新按钮
+                this.addWidget("button", "🔄 刷新列表 (Refresh)", "refresh", () => { this.refreshLoadNode(); });
+
                 setTimeout(() => { this.setSize(this.computeSize()); }, 100);
             };
 

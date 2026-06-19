@@ -45,7 +45,7 @@ for folder in ["nlfpose_data", "keypoints_data", "mask_bin_tensor_data", "image_
     os.makedirs(os.path.join(folder_paths.get_output_directory(), folder), exist_ok=True)
 
 # 2. 建立通用的 JSON/数据上传通道
-@server.PromptServer.instance.routes.post("/nlf_datatool/upload")
+@server.PromptServer.instance.routes.post("/data_tool/upload")
 async def upload_io_file(request):
     post = await request.post()
     file = post.get("file")
@@ -56,8 +56,23 @@ async def upload_io_file(request):
         target_dir = os.path.join(folder_paths.get_input_directory(), file_type)
         with open(os.path.join(target_dir, file_name), "wb") as f:
             f.write(content)
+
+        # 顺便通知前端全局刷新对应的加载节点
+        server.PromptServer.instance.send_sync("datatool.file_saved", {"folder": file_type})
+
         return web.json_response({"name": file_name, "type": file_type})
     return web.Response(status=400)
+
+# 专用局部文件刷新接口 (接收类型与后缀名)
+@server.PromptServer.instance.routes.get("/data_tool/list_files")
+async def list_files_api(request):
+    folder_type = request.query.get("type", "keypoints_data")
+    ext = request.query.get("ext", ".json")
+    
+    # 动态调取工具类扫描最新目录
+    from .utils import get_file_list
+    files = get_file_list(folder_type, ext=ext)
+    return web.json_response(files)
 
 # 3. 🌟 动态反射模块化加载引擎 🌟
 NODE_CLASS_MAPPINGS = {}
