@@ -67,4 +67,46 @@ Object.assign(window.DataTool_I18N.ZH, {
     • <b>输出为列表</b>: 开启则输出降一级的张量列表，关闭则输出升维后的多维大张量（如折叠成[2,3]张量。开启后输出2个[3]，关闭后输出[2,3]）。
 </div>`
     },
+
+    "ExtraMaskDraw": {
+        title: "附加遮罩绘制",
+        widgets: {
+            "mask_color": "遮罩颜色"
+        },
+        slot_labels: { "mask": "遮罩", "extra_mask": "附加遮罩" },
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">节点功能说明</h3>
+    连接 遮罩绘制颜色节点，允许渲染更多颜色不同的遮罩，支持串联。<br>
+    <b>输入</b><br>
+    遮罩：被绘制的遮罩。<br>
+    附加遮罩 (可选)：串联 附加遮罩绘制节点 。<br>
+    <b>输出</b><br>
+    附加遮罩：连接 遮罩绘制颜色节点 ，或者串联 附加遮罩绘制节点 。<br>
+    <b>参数</b><br>
+    • <b>遮罩颜色</b>: 遮罩的渲染颜色。支持 十六进制(#000000), RGB(0,0,0) 或 十进制整数。
+</div>`
+    },
+
+    "MaskDrawColor": {
+        title: "🎨 遮罩绘制颜色",
+        widgets: {
+            "bg_color": "背景颜色",
+            "mask_color": "遮罩颜色"
+        },
+        slot_labels: { "mask": "遮罩", "extra_mask": "附加遮罩", "background_image": "背景图像", "IMAGE": "图像" },
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">🎨 节点功能说明</h3>
+    在背景（纯色或图片）上绘制遮罩以及上层多重附加遮罩。<br>
+    <b>输入</b><br>
+    遮罩：被绘制的遮罩。<br>
+    背景图像 (可选)：背景图像。连入则无视背景颜色。<br>
+    附加遮罩 (可选)：接收 附加遮罩绘制 节点，渲染更多遮罩（后来居上顺序渲染）。<br>
+    <b>输出</b><br>
+    图像：渲染后图像。<br>
+    <b>参数</b><br>
+    • <b>背景颜色 / 遮罩颜色</b>: 背景与遮罩的渲染颜色。支持 十六进制(#000000), RGB(0,0,0) 或 十进制整数。
+</div>`
+    },
 });

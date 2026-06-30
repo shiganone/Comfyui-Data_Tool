@@ -13,7 +13,13 @@ offload_device = mm.unet_offload_device()
 
 class SaveNLFPose:
     @classmethod
-    def INPUT_TYPES(s): return {"required": {"nlf_poses": ("NLFPRED",), "filename_prefix": ("STRING", {"default": "3d_nlf_pose"})}}
+    def INPUT_TYPES(s): 
+        return {
+            "required": {
+                "nlf_poses": ("NLFPRED", {"tooltip": "NLF pose"}),
+                "filename_prefix": ("STRING", {"default": "3d_nlf_pose"})
+            }
+        }
     RETURN_TYPES = ("NLFPRED",)
     OUTPUT_NODE = True
     FUNCTION = "save"
@@ -78,7 +84,13 @@ class LoadNLFPose:
 
 class SaveKeypoints:
     @classmethod
-    def INPUT_TYPES(s): return {"required": {"keypoints": ("POSE_KEYPOINT",), "filename_prefix": ("STRING", {"default": "2d_keypoints"})}}
+    def INPUT_TYPES(s): 
+        return {
+            "required": {
+                "keypoints": ("POSE_KEYPOINT", {"tooltip": "keypoints"}), 
+                "filename_prefix": ("STRING", {"default": "2d_keypoints"})
+            }
+        }
     RETURN_TYPES = ("POSE_KEYPOINT",)
     OUTPUT_NODE = True
     FUNCTION = "save"
@@ -160,7 +172,7 @@ class SaveMaskBinTensor:
     def INPUT_TYPES(s): 
         return {
             "required": {
-                "mask": ("MASK",), 
+                "mask": ("MASK", {"tooltip": "mask"}), 
                 "filename_prefix": ("STRING", {"default": "mask_bin_tensor_data"}),
                 "precision": (["float32", "float16", "uint8", "boolean"], {"default": "uint8"}),
                 "use_blosc": ("BOOLEAN", {"default": True, "tooltip": "开启Blosc内存洗牌提纯"}),
@@ -170,6 +182,7 @@ class SaveMaskBinTensor:
             }
         }
     RETURN_TYPES = ("MASK",)
+    RETURN_NAMES = ("mask",)
     OUTPUT_NODE = True
     FUNCTION = "save"
     CATEGORY = "Data_Tool/Data_Save_Load"
@@ -261,6 +274,7 @@ class LoadMaskBinTensor:
             }
         }
     RETURN_TYPES = ("MASK",)
+    RETURN_NAMES = ("mask",)
     FUNCTION = "load"
     CATEGORY = "Data_Tool/Data_Save_Load"
 
@@ -321,7 +335,7 @@ class SaveImageBinTensor:
     def INPUT_TYPES(s): 
         return {
             "required": {
-                "images": ("IMAGE",), 
+                "images": ("IMAGE", {"tooltip": "Images"}), 
                 "filename_prefix": ("STRING", {"default": "image_bin_tensor_data"}),
                 "precision": (["float32", "float16", "uint8"], {"default": "uint8"}),
                 "use_blosc": ("BOOLEAN", {"default": True, "tooltip": "开启Blosc内存洗牌提纯"}),
@@ -331,6 +345,7 @@ class SaveImageBinTensor:
             }
         }
     RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
     OUTPUT_NODE = True
     FUNCTION = "save"
     CATEGORY = "Data_Tool/Data_Save_Load"
@@ -423,6 +438,7 @@ class LoadImageBinTensor:
             }
         }
     RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("image",)
     FUNCTION = "load"
     CATEGORY = "Data_Tool/Data_Save_Load"
 
@@ -479,7 +495,7 @@ class SaveLatentBinTensor:
     def INPUT_TYPES(s): 
         return {
             "required": {
-                "latent": ("LATENT",), 
+                "latent": ("LATENT", {"tooltip": "Latent"}), 
                 "filename_prefix": ("STRING", {"default": "latent_bin_tensor_data"}),
                 "use_blosc": ("BOOLEAN", {"default": True, "tooltip": "开启Blosc内存洗牌提纯"}),
                 "use_zstd": ("BOOLEAN", {"default": True, "tooltip": "开启Zstd极速高压"}),
@@ -488,6 +504,7 @@ class SaveLatentBinTensor:
             }
         }
     RETURN_TYPES = ("LATENT",)
+    RETURN_NAMES = ("latent",)
     OUTPUT_NODE = True
     FUNCTION = "save"
     CATEGORY = "Data_Tool/Data_Save_Load"
@@ -590,6 +607,7 @@ class LoadLatentBinTensor:
             }
         }
     RETURN_TYPES = ("LATENT",)
+    RETURN_NAMES = ("latent",)
     FUNCTION = "load"
     CATEGORY = "Data_Tool/Data_Save_Load"
 

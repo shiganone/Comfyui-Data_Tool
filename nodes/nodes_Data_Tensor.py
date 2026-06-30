@@ -1,5 +1,7 @@
 ﻿import torch
-from ..utils import any_type
+from ..utils import any_type, validate_compatibility, parse_color
+import re
+import math
 
 
 # ================= ✂️ 通用张量提取切片节点 (Tensor Extractor) =================
@@ -234,14 +236,136 @@ class TensorFolder:
         return (result,)
 
 
+# ================= 附加遮罩绘制节点 (Extra Mask Draw) =================
+class ExtraMaskDraw:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "mask": ("MASK", {"tooltip": "输入的附加遮罩"}),
+                "mask_color": ("STRING", {"default": "255,255,255", "tooltip": "附加遮罩的颜色。支持 十六进制, RGB 或 十进制"}),
+            },
+            "optional": {
+                "extra_mask": ("EXTRA_MASK", {"tooltip": "串联下层附加遮罩 (后来居上)"}),
+            }
+        }
+    RETURN_TYPES = ("EXTRA_MASK",)
+    RETURN_NAMES = ("extra_mask",)
+    FUNCTION = "process"
+    CATEGORY = "Data_Tool/Data_Tensor"
+
+    def process(self, mask, mask_color, extra_mask=None):
+        rgb = parse_color(mask_color)
+        new_layer = {
+            "mask": mask.clone(),
+            "color": rgb
+        }
+        
+        # 链式收集：继承前序节点的图层，将当前节点追加在最顶层
+        layers = list(extra_mask) if extra_mask is not None else []
+        layers.append(new_layer)
+        
+        return (layers,)
+
+
+# ================= 🎨 遮罩绘制节点 (Mask Draw Color) =================
+class MaskDrawColor:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "mask": ("MASK", {"tooltip": "基础遮罩 (处于最底层)"}),
+                "bg_color": ("STRING", {"default": "0,0,0", "tooltip": "背景颜色。支持 十六进制, RGB 或 十进制"}),
+                "mask_color": ("STRING", {"default": "255,255,255", "tooltip": "基础遮罩颜色。支持 十六进制, RGB 或 十进制"}),
+            },
+            "optional": {
+                "extra_mask": ("EXTRA_MASK", {"tooltip": "连入附加遮罩绘制节点"}),
+                "background_image": ("IMAGE", {"tooltip": "可选：连入背景图像。若连入，将无视背景颜色参数。"})
+            }
+        }
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "draw"
+    CATEGORY = "Data_Tool/Data_Tensor"
+
+    def draw(self, mask, bg_color, mask_color, extra_mask=None, background_image=None):
+        # 1. 基础维度获取与降维处理 (不使用 clone，节约大量内存)
+        B = mask.shape[0] if mask.ndim > 2 else 1
+        H, W = mask.shape[-2], mask.shape[-1]
+        
+        m_base = mask if mask.ndim == 3 else mask.unsqueeze(0)
+        m_base = m_base.unsqueeze(-1) # [B, H, W, 1]
+
+        # 2. 校验背景图像
+        if background_image is not None:
+            if background_image.shape[0] != B:
+                raise ValueError(f"遮罩绘制错误: 背景图像批次长度 ({background_image.shape[0]}) 与 基础遮罩批次长度 ({B}) 不一致！")
+            if background_image.shape[1] != H or background_image.shape[2] != W:
+                raise ValueError(f"遮罩绘制错误: 背景图像分辨率 ({background_image.shape[2]}x{background_image.shape[1]}) 与 遮罩分辨率 ({W}x{H}) 不一致！")
+        
+        # 3. 解析颜色 (归一化到 0~1)
+        bg_rgb = parse_color(bg_color)
+        bg_color_tensor = torch.tensor(bg_rgb, dtype=torch.float32, device=mask.device) / 255.0
+        
+        base_rgb = parse_color(mask_color)
+        base_color_tensor = torch.tensor(base_rgb, dtype=torch.float32, device=mask.device) / 255.0
+
+        # 4. 预处理附加遮罩图层
+        processed_extras = []
+        if extra_mask is not None:
+            for layer in extra_mask:
+                lm = layer["mask"].to(mask.device)
+                if lm.ndim == 2: lm = lm.unsqueeze(0)
+                lm = lm.unsqueeze(-1)
+                
+                if lm.shape[0] != B:
+                    raise ValueError(f"遮罩绘制错误: 附加遮罩批次长度 ({lm.shape[0]}) 与 基础遮罩批次长度 ({B}) 不一致！")
+                if lm.shape[1] != H or lm.shape[2] != W:
+                    raise ValueError(f"遮罩绘制错误: 附加遮罩分辨率 ({lm.shape[2]}x{lm.shape[1]}) 与 基础遮罩分辨率 ({W}x{H}) 不一致！")
+                    
+                lc = torch.tensor(layer["color"], dtype=torch.float32, device=mask.device) / 255.0
+                processed_extras.append((lm, lc))
+
+        # 🚀 5. 核心优化：CPU 缓存友好型单帧渲染引擎
+        output_images = []
+        
+        # 生成一个零内存占用的单帧背景视图 (H, W, 3)
+        bg_frame_expanded = bg_color_tensor.view(1, 1, 3).expand(H, W, 3)
+
+        for i in range(B):
+            # A. 取背景单帧
+            if background_image is not None:
+                curr_canvas = background_image[i] # [H, W, 3]
+            else:
+                curr_canvas = bg_frame_expanded # [H, W, 3]
+
+            # B. 绘制基础 Mask
+            curr_m = m_base[i] # [H, W, 1]
+            out_frame = curr_canvas * (1.0 - curr_m) + base_color_tensor * curr_m
+
+            # C. 绘制附加遮罩图层 (后来居上)
+            for (extra_m, extra_c) in processed_extras:
+                curr_extra_m = extra_m[i]
+                out_frame = out_frame * (1.0 - curr_extra_m) + extra_c * curr_extra_m
+                
+            output_images.append(out_frame)
+
+        # 最后将列表合成一个大批次张量输出
+        image = torch.stack(output_images, dim=0)
+
+        return (image,)
+
 NODE_CLASS_MAPPINGS = {
     "TensorExtractor": TensorExtractor,
     "TensorReplacer": TensorReplacer,
     "TensorFolder": TensorFolder,
+    "MaskDrawColor": MaskDrawColor,
+    "ExtraMaskDraw": ExtraMaskDraw,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "TensorExtractor": "✂️ 张量提取 Tensor Extractor",
     "TensorReplacer": "💉 张量替换 Tensor Replacer",
     "TensorFolder": "🗂️ 张量折叠 Tensor Folder",
+    "MaskDrawColor": "🎨 遮罩绘制 Mask Draw Color",
+    "ExtraMaskDraw": "附加遮罩绘制 Extra Mask Draw",
 }

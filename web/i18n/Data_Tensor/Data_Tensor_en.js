@@ -67,4 +67,37 @@ Object.assign(window.DataTool_I18N.EN, {
     • <b>Output as List</b>: Enable to output a downgraded list of tensors, disable to output a single multi-dimensional large tensor (e.g., folding into [2,3]. Enabled -> two [3]s; Disabled -> one [2,3]).
 </div>`
     },
+
+    "ExtraMaskDraw": {
+        title: "Extra Mask Draw",
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">Node Functionality</h3>
+    Connects to the MaskDrawColor node, allowing the rendering of multiple masks with different colors. Supports infinite chaining.<br>
+    <b>Inputs</b><br>
+    mask: The mask to be drawn.<br>
+    extra_mask (Optional): Chains another ExtraMaskDraw node.<br>
+    <b>Outputs</b><br>
+    EXTRA_MASK: Connects to the MaskDrawColor node or chains to another ExtraMaskDraw node.<br>
+    <b>Parameters</b><br>
+    • <b>mask_color</b>: The rendering color for the mask. Supports Hex (#000000), RGB (0,0,0), or Decimal integers.
+</div>`
+    },
+
+    "MaskDrawColor": {
+        title: "🎨 Mask Draw Color",
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">🎨 Node Functionality</h3>
+    Draws a base mask and multiple upper-layer extra masks onto a background (solid color or image).<br>
+    <b>Inputs</b><br>
+    mask: The base mask to be drawn.<br>
+    background_image (Optional): Background image batch. If connected, the bg_color parameter is ignored.<br>
+    extra_mask (Optional): Receives layers from ExtraMaskDraw nodes to render more masks (rendered in a later-is-on-top order).<br>
+    <b>Outputs</b><br>
+    IMAGE: The rendered image batch.<br>
+    <b>Parameters</b><br>
+    • <b>bg_color / mask_color</b>: The rendering colors for the background and the base mask. Supports Hex (#000000), RGB (0,0,0), or Decimal integers.
+</div>`
+    },
 });

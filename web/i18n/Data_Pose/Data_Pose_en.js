@@ -198,18 +198,20 @@ Object.assign(window.DataTool_I18N.EN, {
 </div>`
     },
 
-    "PoseBlackBackgroundOptions": {
-        title: "Pose Black Background Options",
+    "PoseBackgroundOptions": {
+        title: "Pose Background Options",
         help: `
 <div style="font-family: Arial, sans-serif;">
     <h3 style="margin-top: 0; color: #4af;">Node Functionality</h3>
-    Provides highly customizable black background configurations for pose rendering.<br>
+    Provides highly customizable pose background mask configurations for pose rendering.<br>
     <b>Outputs</b><br>
-    POSE_BLACK_BACKGROUND: Connects to the corresponding input of the UniversalPoseRenderer node.<br>
+    POSE_BACKGROUND: Connects to the corresponding input of the UniversalPoseRenderer node.<br>
     <b>Parameters</b><br>
-    • <b>[body/face/hand/foot]_point_radius</b>: Controls the expansion radius of the black background under the keypoints and connections of the corresponding body part.<br>
-    • <b>[body/face/hand/foot]_hull</b>: When enabled, calculates the bounding polygon (convex hull) of the valid keypoints and fills it with black. (The body hull is calculated based solely on 5 core torso points: collarbone, shoulders, and hips).<br>
-    • <b>[body/face/hand/foot]_infill_expand</b>: Controls the outward expansion distance (in pixels) for the black infill polygon of the corresponding body part.
+    • <b>bg_color</b>: The background color for the drawn keypoints. Supports Hex (#000000), RGB (0,0,0), or Decimal integers.<br>
+    • <b>draw_only_bg</b>: When enabled, the UniversalPoseRenderer will only render the background mask and skip drawing the color skeletons.<br>
+    • <b>[body/face/hand/foot]_point_radius</b>: Controls the background expansion radius for the keypoints and connections of the corresponding body part.<br>
+    • <b>[body/face/hand/foot]_hull</b>: When enabled, calculates the bounding polygon of the valid keypoints and fills it with the background color. (The body hull is calculated based solely on 5 core points: collarbone, shoulders, and hips).<br>
+    • <b>[body/face/hand/foot]_infill_expand</b>: Controls the outward expansion distance (in pixels) for the infill polygon of the corresponding body part.
 </div>`
     },
 
@@ -218,19 +220,42 @@ Object.assign(window.DataTool_I18N.EN, {
         help: `
 <div style="font-family: Arial, sans-serif;">
     <h3 style="margin-top: 0; color: #4af;">🎨 Node Functionality</h3>
-    Removes safety point-count validations for face and foot points, supporting any number of points. Seamlessly renders SDPose, ViTPose, OpenPose, and other skeleton data.<br>
+    Removes safety point-count validations for face and foot points, supporting the rendering of pose data with any number of face and foot keypoints.<br>
     <b>Inputs</b><br>
     keypoints: The pose data to be rendered.<br>
-    background_image (Optional): A batch of background images. If disconnected, renders on a pure black background by default.<br>
-    POSE_BLACK_BACKGROUND (Optional): When a background image is connected, you can customize the black background for keypoints.<br>
+    background_image (Optional): A batch of background images. If disconnected, it renders on a pure black background by default.<br>
+    pose_background (Optional): Customizes the drawn background based on keypoints.<br>
     <b>Outputs</b><br>
     IMAGE: The rendered pose image batch.<br>
+    MASK: The mask corresponding to the background drawn by the pose_background options.<br>
     <b>Parameters</b><br>
-    • <b>draw_body / hands / face / feet</b>: Toggles for rendering specific body parts.<br>
+    • <b>draw_body / draw_hands / draw_face / draw_feet</b>: Toggles for rendering specific body parts.<br>
     • <b>connect_feet</b>: When enabled, draws lines connecting the foot points to the ankle points.<br>
-    • <b>score_threshold</b>: Confidence score filter; points below this threshold will not be drawn.<br>
-    • <b>stick_width</b>: The line thickness for skeletal connections.<br>
+    • <b>score_threshold</b>: Confidence score threshold; points below this score will not be drawn.<br>
+    • <b>stick_width</b>: The line thickness for keypoint connections.<br>
     • <b>face_point_size</b>: The pixel radius for the white facial points.
+</div>`
+    },
+
+    "UniversalPoseEditor": {
+        title: "✏️ Universal Pose Editor",
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">✏️ Node Functionality</h3>
+    A universal 2D keypoint pose editor.<br>
+    <b>Inputs</b><br>
+    background_image (Optional): Clicking the [Load BG] button inside the editor will extract this image to use as a reference background.<br>
+    <b>Outputs</b><br>
+    POSE_KEYPOINT: Outputs the keypoint data currently inside the text box.<br>
+    <b>Parameters</b><br>
+    pose_json: Input the keypoint data in standard JSON format.<br>
+    <hr style="border-color: #444;">
+    <h3 style="color: #4af;">🎮 Editor Shortcuts & Controls</h3>
+    • <b>View Control</b>: Use the mouse wheel to zoom, and drag with the middle mouse button to pan the canvas.<br>
+    • <b>Select Keypoints</b>: Left-click to select a single point, drag in any empty space to box-select, or hold <b>Shift</b> while clicking for multi-selection.<br>
+    • <b>Move Keypoints</b>: Once target points are selected, hold the left mouse button and drag to move them.<br>
+    • <b>Hide Keypoints</b>: Click <b>[Right-Click]</b> on a keypoint or selected bounding box to quickly toggle visibility.<br>
+    • <b>History Actions</b>: Supports <b>Ctrl+Z</b> (Undo) and <b>Ctrl+Y</b> (Redo).
 </div>`
     },
 });

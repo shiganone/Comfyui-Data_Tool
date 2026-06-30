@@ -9,7 +9,7 @@ import torch
 class AnyType(str):
     def __ne__(self, __value: object) -> bool:
         return False
-any_type = AnyType("*")
+any_type = AnyType("IMAGE,MASK,LATENT,POSE_KEYPOINT,NLFPRED,CONDITIONING,DIRECTION_LABELS,ORIENTATION_DATA,POSE_BG_OPTIONS")
 
 
 # ================= 🧮 通用时序切片数学引擎 =================
@@ -37,6 +37,47 @@ def calculate_slice_indices(total_len, start_index, length, reverse_direction):
     final_end = min(total_len, max(final_start, final_end))
     
     return final_start, final_end
+
+
+# ================= 🎨 全局万能色彩解析器 (支持Hex/RGB/十进制) =================
+def parse_color(color_str):
+    c = color_str.strip()
+    
+    # 1. 解析十六进制 (Hex: #FFFFFF)
+    if c.startswith('#'):
+        c_hex = c.lstrip('#')
+        if len(c_hex) == 3: # 支持缩写 #FFF -> #FFFFFF
+            c_hex = ''.join([char*2 for char in c_hex])
+        if not re.match(r'^[0-9a-fA-F]{6}$', c_hex):
+            raise ValueError(f"色彩解析错误: 非法的十六进制颜色码 '{color_str}'。格式应为 #RRGGBB 或 #RGB")
+        return [int(c_hex[i:i+2], 16) for i in (0, 2, 4)]
+    
+    # 2. 解析 RGB 字符串 (如 255, 0, 0)
+    if ',' in c:
+        c_clean = c.strip('()[]{}')
+        parts = [p.strip() for p in c_clean.split(',')]
+        if len(parts) >= 3:
+            rgb_vals = []
+            for p in parts[:3]:
+                if not re.match(r'^-?\d+$', p):
+                    raise ValueError(f"色彩解析错误: RGB通道存在非法字符 '{p}'")
+                val = int(p)
+                if val < 0:
+                    raise ValueError(f"色彩解析错误: RGB通道值不能为负数 ({val})！")
+                if val > 255: val = 255 # 自动截断上限
+                rgb_vals.append(val)
+            return rgb_vals
+        raise ValueError(f"色彩解析错误: 非法的 RGB 颜色码 '{color_str}'。格式应为: 255, 255, 255")
+    
+    # 3. 解析十进制整数 (支持负号判定)
+    if re.match(r'^-?\d+$', c):
+        val = int(c)
+        if val < 0:
+            raise ValueError(f"色彩解析错误: 十进制颜色码不能为负数 ({val})！")
+        if val > 16777215: val = 16777215 # 自动截断上限
+        return [(val >> 16) & 255, (val >> 8) & 255, val & 255]
+        
+    raise ValueError(f"色彩解析错误: 无法解析的颜色格式 '{color_str}'。")
 
 
 # ================= 🛡️ 全局内部严格校验引擎 =================

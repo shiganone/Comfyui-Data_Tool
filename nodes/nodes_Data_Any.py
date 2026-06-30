@@ -74,7 +74,6 @@ class BatchDataReplacer:
     CATEGORY = "Data_Tool/Data_Any"
 
     def replace(self, target_data, replacement_data, start_index, overflow_mode, reverse_direction):
-        import copy
         
         # 🔥 强行防呆校验
         validate_compatibility(target_data, replacement_data, error_prefix="批次替换错误")

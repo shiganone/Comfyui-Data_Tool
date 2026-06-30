@@ -15,6 +15,7 @@ Object.assign(window.DataTool_I18N.ZH, {
     • <b>键名</b>: 被提取的键名。
 </div>`
     },
+
     "ConditioningSetter": {
         title: "✍️ 条件字典写入",
         widgets: { "key_name": "键名" },
@@ -31,6 +32,7 @@ Object.assign(window.DataTool_I18N.ZH, {
     • <b>键名</b>: 被覆盖的键名。
 </div>`
     },
+
     "TensorLatentConverter": {
         title: "🔄 张量/Latent 转换器",
         widgets: { "mode": "转换模式" },

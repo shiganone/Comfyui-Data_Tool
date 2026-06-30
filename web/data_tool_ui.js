@@ -4,14 +4,24 @@ import { api } from "../../scripts/api.js"; // 🔥 新增 API 引入用于 WebS
 // 🌟 1. 防御性初始化全局翻译数据总线 🌟
 window.DataTool_I18N = window.DataTool_I18N || { ZH: {}, EN: {} };
 
-// 🌟 2. 智能探测语言环境 🌟
-const isZH = (localStorage.getItem("comfy_language") === "zh-CN") ||
-    (navigator.language.toLowerCase().startsWith("zh"));
+// 🌟 2. 智能探测语言环境 (🔥 修复：现行版 ComfyUI 的语言设置不再存于 localStorage，
+//    而是持久化在服务器端，需通过 app.extensionManager.setting 读取 Comfy.Locale) 🌟
+function detectIsZH() {
+    try {
+        const locale = app.extensionManager?.setting?.get("Comfy.Locale");
+        if (locale) return locale.toLowerCase().startsWith("zh");
+    } catch (e) { /* 设置系统尚未就绪时静默降级 */ }
+
+    // 兜底链：仅当原生设置读取失败 (如极旧版 ComfyUI) 时才会用到
+    const legacy = localStorage.getItem("comfy_language");
+    if (legacy !== null) return legacy === "zh-CN";
+    return navigator.language.toLowerCase().startsWith("zh");
+}
 
 app.registerExtension({
     name: "DataTool.UI_Core",
     
-    // 🔥 新增：注册全局 WebSocket 监听器 (全自动刷新方案)
+    // 注册全局 WebSocket 监听器 (全自动刷新方案)
     setup() {
         api.addEventListener("datatool.file_saved", (event) => {
             const updatedFolder = event.detail.folder;
@@ -26,8 +36,7 @@ app.registerExtension({
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-
-        // ================= 【一】 宽度紧箍咒 =================
+        // ================= 【一】 设置宽度 =================
         if (nodeData.category && nodeData.category.includes("Data_Tool")) {
             const origComputeSize = nodeType.prototype.computeSize;
             nodeType.prototype.computeSize = function (out) {
@@ -106,11 +115,16 @@ app.registerExtension({
                 };
                 document.body.append(fileInput);
 
-                this.addWidget("button", "📂 上传文件 (Upload)", "upload", () => { fileInput.click(); });
+                this.addWidget("button", detectIsZH() ? "📂 上传文件" : "📂 Upload File", "upload", () => { fileInput.click(); });
                 // 注入手动刷新按钮
-                this.addWidget("button", "🔄 刷新列表 (Refresh)", "refresh", () => { this.refreshLoadNode(); });
+                this.addWidget("button", detectIsZH() ? "🔄 刷新列表" : "🔄 Refresh List", "refresh", () => { this.refreshLoadNode(); });
 
-                setTimeout(() => { this.setSize(this.computeSize()); }, 100);
+                setTimeout(() => {
+                    const sz = this.computeSize();
+                    if (this.size[0] < sz[0] || this.size[1] < sz[1]) {
+                        this.setSize([Math.max(this.size[0], sz[0]), Math.max(this.size[1], sz[1])]);
+                    }
+                }, 100);
             };
 
             const onRemoved = nodeType.prototype.onRemoved;
@@ -169,17 +183,94 @@ app.registerExtension({
                     }
                 }
 
-                // 强制节点根据新的接口数量重新调整高度
-                this.setSize(this.computeSize());
+                const minSize = this.computeSize();
+                this.setSize([this.size[0], minSize[1]]);
+            };
+        }
+
+        // ================= 【三点八】 Pose 编辑器：注入编辑按钮 =================
+        if (nodeData.name === "UniversalPoseEditor") {
+
+            // 🌟 核心：拦截后端返回的图片路径
+            const onExecutedEditor = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function (message) {
+                if (onExecutedEditor) onExecutedEditor.apply(this, arguments);
+                if (message && message.background_image) {
+                    this.properties = this.properties || {};
+                    this.properties.bg_image_path = message.background_image[0].filename;
+                }
+            };
+
+            const onNodeCreatedEditor = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function () {
+                if (onNodeCreatedEditor) onNodeCreatedEditor.apply(this, arguments);
+
+                // 🌟 核心：初始化全量状态持久化记忆树
+                // 这里的数据会随着 ComfyUI 工作流保存到 .json 中，永不丢失
+                this.properties = this.properties || {};
+                this.properties.editor_state = this.properties.editor_state || {
+                    zoom: { w: 512, h: 512, mode: "自适应", align: "居中", x: 0, y: 0, collapsed: false },
+                    bg: { opacity: 0.5, w: 512, h: 512, x: 0, y: 0, auto_mode: "自适应", auto_align: "居中", collapsed: false, drag_mode: false },
+                    ui: { point_size: 4, threshold: 0.3, connect_feet: true },
+                    add_pose: { hand: false, face: false, face_pts: "70", foot: false, foot_pts: "3" }
+                };
+
+                // 注入触发按钮
+                this.addWidget("button", detectIsZH() ? "✏️ 编辑关键点" : "✏️ Edit Keypoints", "edit_pose_btn", () => {
+                    const jsonWidget = this.widgets.find(w => w.name === "pose_json");
+                    if (!jsonWidget) return;
+
+                    let poseData;
+                    
+                    // 如果文本框是空的，自动生成一个标准的 512x512 空白画布结构
+                    if (!jsonWidget.value || jsonWidget.value.trim() === "") {
+                        poseData = { canvas_width: 512, canvas_height: 512, people: [] };
+                    } else {
+                        try {
+                            poseData = JSON.parse(jsonWidget.value);
+                        } catch (e) {
+                            alert("❌ 无法打开编辑器：文本框中的 JSON 格式无效，请检查！\n" + e.message);
+                            return;
+                        }
+                    }
+
+                    // 兼容带数组外壳的单帧数据
+                    if (Array.isArray(poseData)) {
+                        if (poseData.length === 1) {
+                            poseData = poseData[0];
+                        } else {
+                            alert("❌ 无法打开编辑器：检测到多帧序列(批次)数据！目前仅支持编辑单帧 JSON。");
+                            return;
+                        }
+                    }
+
+                    if (!poseData || typeof poseData !== 'object' || !poseData.people) {
+                        alert("❌ 无法打开编辑器：数据格式不正确，缺少 'people' 键。");
+                        return;
+                    }
+
+                    // 启动弹窗编辑器
+                    window.DataTool.openUniversalPoseEditor(this, poseData);
+                });
+
+                setTimeout(() => {
+                    const sz = this.computeSize();
+                    if (this.size[0] < sz[0] || this.size[1] < sz[1]) {
+                        this.setSize([Math.max(this.size[0], sz[0]), Math.max(this.size[1], sz[1])]);
+                    }
+                }, 100);
             };
         }
 
         // ================= 【四】 动态界面翻译与悬浮面板引擎 =================
+        // 🔥 每个节点类型注册时都重新读取一次，确保拿到用户当前选择的语言
+        const isZH = detectIsZH();
+
         // 动态去全局字典里拿当前节点的翻译数据
         const tData = isZH ? window.DataTool_I18N.ZH[nodeData.name] : window.DataTool_I18N.EN[nodeData.name];
         if (!tData) return;
 
-        if (isZH && tData.title) {
+        if (tData.title) { // 🔥 去掉 isZH && 限制：英文模式下也要同步更新节点搜索面板里的显示名
             nodeData.display_name = tData.title;
         }
 

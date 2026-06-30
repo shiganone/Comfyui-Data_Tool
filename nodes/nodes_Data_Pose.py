@@ -12,6 +12,8 @@ except ImportError:
     HAS_CV2 = False
     print("\n⚠️ [Data_Tool Warning] 未检测到 OpenCV (cv2) 库，通用型pose渲染已降级为纯 Numpy 慢速模式！建议在环境内执行 pip install opencv-python 以获得极致渲染速度。\n")
 
+from ..utils import any_type, calculate_slice_indices, validate_compatibility, parse_color
+
 
 # ================= 🚀 2D Pose 分辨率重映射节点 =================
 class RescaleKeypoints:
@@ -689,35 +691,37 @@ class Direction_Modifier:
         return (out_batch,)
 
 
-# ================= 🎛️ Pose黑背景选项节点 =================
-class PoseBlackBackgroundOptions:
+# ================= Pose背景选项节点 =================
+class PoseBackgroundOptions:
     @classmethod
     def INPUT_TYPES(s):
         return {
             "required": {
-                "body_point_radius": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "躯干点和连线的背景黑边半径"}),
+                "bg_color": ("STRING", {"default": "0,0,0", "tooltip": "背景颜色。支持十六进制, RGB 或 十进制整数"}),
+                "draw_only_bg": ("BOOLEAN", {"default": False, "tooltip": "仅渲染背景（生成纯剪影），不绘制彩色骨骼点线"}),
+
+                "body_point_radius": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "躯干点和连线的背景半径"}),
                 "body_hull": ("BOOLEAN", {"default": False, "tooltip": "开启躯干内补 (基于锁骨及肩髋5点)"}),
-                "body_infill_expand": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "躯干内补向外扩的距离"}),
+                "body_infill_expand": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "躯干内补向外扩的距离"}),
                 
-                "face_point_radius": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "面部点的背景黑边半径"}),
+                "face_point_radius": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "面部点的背景半径"}),
                 "face_hull": ("BOOLEAN", {"default": False, "tooltip": "开启面部多边形内补"}),
-                "face_infill_expand": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "面部内补向外扩的距离"}),
+                "face_infill_expand": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "面部内补向外扩的距离"}),
                 
-                "hand_point_radius": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "手部点和连线的背景黑边半径"}),
+                "hand_point_radius": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "手部点和连线的背景半径"}),
                 "hand_hull": ("BOOLEAN", {"default": False, "tooltip": "开启手部多边形内补 (左右手独立计算)"}),
-                "hand_infill_expand": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "手部内补向外扩的距离"}),
+                "hand_infill_expand": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "手部内补向外扩的距离"}),
                 
-                "foot_point_radius": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "脚部点和连线的背景黑边半径"}),
+                "foot_point_radius": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "脚部点和连线的背景半径"}),
                 "foot_hull": ("BOOLEAN", {"default": False, "tooltip": "开启脚部多边形内补 (左右脚独立计算)"}),
-                "foot_infill_expand": ("INT", {"default": 0, "min": 0, "max": 100, "step": 1, "tooltip": "脚部内补向外扩的距离"}),
+                "foot_infill_expand": ("INT", {"default": 0, "min": 0, "max": 200, "step": 1, "tooltip": "脚部内补向外扩的距离"}),
             }
         }
-    RETURN_TYPES = ("POSE_BLACK_BACKGROUND",)
+    RETURN_TYPES = ("POSE_BACKGROUND",)
     FUNCTION = "get_options"
     CATEGORY = "Data_Tool/Data_Pose"
 
     def get_options(self, **kwargs):
-        # 原样将 12 个参数打包成字典输出
         return (kwargs,)
 
 
@@ -873,7 +877,16 @@ class UniversalKeypointDraw:
     def __init__(self):
         self.hand_edges = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20]]
         self.body_limbSeq = [[2, 3], [2, 6], [3, 4], [4, 5], [6, 7], [7, 8], [2, 9], [9, 10], [10, 11], [2, 12], [12, 13], [13, 14], [2, 1], [1, 15], [15, 17], [1, 16], [16, 18]]
-        self.colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0], [0, 255, 0], [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
+        
+        # 🔥 优化1：颜色强制转为标准的 int 元组，彻底消灭渲染循环中的强转开销
+        raw_colors = [[255, 0, 0], [255, 85, 0], [255, 170, 0], [255, 255, 0], [170, 255, 0], [85, 255, 0], [0, 255, 0], [0, 255, 85], [0, 255, 170], [0, 255, 255], [0, 170, 255], [0, 85, 255], [0, 0, 255], [85, 0, 255], [170, 0, 255], [255, 0, 255], [255, 0, 170], [255, 0, 85]]
+        self.colors = [tuple(int(c) for c in color) for color in raw_colors]
+        
+        # 🔥 优化2：预先计算所有手部彩虹HSV色彩，拒绝内层循环的浮点与颜色运算
+        self.hand_colors = []
+        for ie in range(len(self.hand_edges)):
+            r, g, b = colorsys.hsv_to_rgb(ie / float(len(self.hand_edges)), 1.0, 1.0)
+            self.hand_colors.append((int(r * 255), int(g * 255), int(b * 255)))
 
         self.use_cv2 = HAS_CV2
         if HAS_CV2:
@@ -881,19 +894,19 @@ class UniversalKeypointDraw:
 
     def circle(self, canvas_np, center, radius, color):
         if self.use_cv2:
-            self.cv2.circle(canvas_np, (int(center[0]), int(center[1])), int(radius), tuple(int(c) for c in color), thickness=-1)
+            self.cv2.circle(canvas_np, (int(center[0]), int(center[1])), int(radius), color, thickness=-1)
         else:
             self._circle_numpy(canvas_np, center, radius, color)
 
     def line(self, canvas_np, pt1, pt2, color, thickness=1):
         if self.use_cv2:
-            self.cv2.line(canvas_np, (int(pt1[0]), int(pt1[1])), (int(pt2[0]), int(pt2[1])), tuple(int(c) for c in color), thickness=int(thickness))
+            self.cv2.line(canvas_np, (int(pt1[0]), int(pt1[1])), (int(pt2[0]), int(pt2[1])), color, thickness=int(thickness))
         else:
             self._line_numpy(canvas_np, pt1, pt2, color, thickness)
 
     def fillConvexPoly(self, canvas_np, pts, color):
         if self.use_cv2:
-            self.cv2.fillConvexPoly(canvas_np, np.array(pts, dtype=np.int32), tuple(int(c) for c in color))
+            self.cv2.fillConvexPoly(canvas_np, pts if isinstance(pts, np.ndarray) else np.array(pts, dtype=np.int32), color)
         else:
             self._fillConvexPoly_numpy(canvas_np, pts, color)
 
@@ -903,7 +916,6 @@ class UniversalKeypointDraw:
         else:
             return self._ellipse2Poly_numpy(center, axes, angle)
             
-    # 🌟 新增：凸包算法 (Convex Hull) 接口
     def convexHull(self, pts):
         if len(pts) < 3: return pts
         if self.use_cv2:
@@ -987,10 +999,9 @@ class UniversalKeypointDraw:
                 prev_pt = tuple(pt)
         return pts if len(pts) > 1 else [[center[0], center[1]], [center[0], center[1]]]
         
-    # 🌟 新增：Numpy 保底凸包算法 (Jarvis March 卷包裹法，适用极少点位的高效方案)
     @staticmethod
     def _convexHull_numpy(pts):
-        pts = list(set([tuple((p[0], p[1])) for p in pts])) # 去重
+        pts = list(set([tuple((p[0], p[1])) for p in pts])) 
         if len(pts) < 3: return pts
         start = min(pts, key=lambda p: (p[0], p[1]))
         hull = []
@@ -1002,7 +1013,6 @@ class UniversalKeypointDraw:
                 if q == p:
                     q = r
                     continue
-                # 叉积计算方向
                 val = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
                 if val > 0:
                     q = r
@@ -1015,7 +1025,7 @@ class UniversalKeypointDraw:
         return hull
 
 
-# ================= 🎥 通用姿态渲染节点 =================
+# ================= 🎥 通用型 Pose 渲染器 =================
 class UniversalPoseRenderer:
     @classmethod
     def INPUT_TYPES(s):
@@ -1033,105 +1043,84 @@ class UniversalPoseRenderer:
             },
             "optional": {
                 "background_image": ("IMAGE", {"tooltip": "可选的背景图片批次。若连入，则直接在这些图片上绘制。"}),
-                "pose_black_background": ("POSE_BLACK_BACKGROUND", {"tooltip": "接入pose黑背景选项节点进行精细化遮罩控制"})
+                "pose_background": ("POSE_BACKGROUND", {"tooltip": "接入pose背景选项节点进行精细化遮罩控制"})
             }
         }
-    RETURN_TYPES = ("IMAGE",)
+    RETURN_TYPES = ("IMAGE", "MASK")
     FUNCTION = "render"
     CATEGORY = "Data_Tool/Data_Pose"
 
-    # 🌟 统一姿态绘制管道 (Two-Pass 复用架构)
-    def draw_person_pose(self, canvas, person, draw_pass, drawer, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, pose_black_background, w, h):
-        is_black = (draw_pass == 'black')
+    def draw_person_pose(self, canvas, parsed_person, draw_pass, drawer, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, bg_options, w, h):
+        is_mask = (draw_pass == 'mask')
         
-        # 拆分获取四类配置
-        b_pr, b_hull, b_hr = pose_black_background['body_point_radius'], pose_black_background['body_hull'], pose_black_background['body_infill_expand']
-        f_pr, f_hull, f_hr = pose_black_background['face_point_radius'], pose_black_background['face_hull'], pose_black_background['face_infill_expand']
-        h_pr, h_hull, h_hr = pose_black_background['hand_point_radius'], pose_black_background['hand_hull'], pose_black_background['hand_infill_expand']
-        ft_pr, ft_hull, ft_hr = pose_black_background['foot_point_radius'], pose_black_background['foot_hull'], pose_black_background['foot_infill_expand']
+        b_pr, b_hull, b_hr = bg_options['body_point_radius'], bg_options['body_hull'], bg_options['body_infill_expand']
+        f_pr, f_hull, f_hr = bg_options['face_point_radius'], bg_options['face_hull'], bg_options['face_infill_expand']
+        h_pr, h_hull, h_hr = bg_options['hand_point_radius'], bg_options['hand_hull'], bg_options['hand_infill_expand']
+        ft_pr, ft_hull, ft_hr = bg_options['foot_point_radius'], bg_options['foot_hull'], bg_options['foot_infill_expand']
         
-        # 动态控制 Pass 的部位绘制许可 (黑底 Pass 依据半径配置，彩色 Pass 依据原始开关)
-        do_body_pts = (b_pr > 0) if is_black else draw_body
-        do_face_pts = (f_pr > 0) if is_black else draw_face
-        do_hand_pts = (h_pr > 0) if is_black else draw_hands
-        do_foot_pts = (ft_pr > 0) if is_black else draw_feet
+        do_body_pts = (b_pr > 0) if is_mask else draw_body
+        do_face_pts = (f_pr > 0) if is_mask else draw_face
+        do_hand_pts = (h_pr > 0) if is_mask else draw_hands
+        do_foot_pts = (ft_pr > 0) if is_mask else draw_feet
         
-        # 尺寸外扩膨胀计算 (仅点位保留动态机制，因为连线在黑底时改为直线策略)
-        curr_body_radius = 4 + b_pr if is_black else 4
-        curr_foot_radius = 4 + ft_pr if is_black else 4
-        curr_hand_line_thickness = 2 + h_pr * 2 if is_black else 2
-        curr_hand_point_radius = 4 + h_pr if is_black else 4
-        curr_face_point_size = face_point_size + f_pr if is_black else face_point_size
+        curr_body_radius = 4 + b_pr if is_mask else 4
+        curr_foot_radius = 4 + ft_pr if is_mask else 4
+        curr_hand_line_thickness = 2 + h_pr * 2 if is_mask else 2
+        curr_hand_point_radius = 4 + h_pr if is_mask else 4
+        curr_face_point_size = face_point_size + f_pr if is_mask else face_point_size
         
         def get_color(default_color):
-            return (0, 0, 0) if is_black else default_color
+            return (255, 255, 255) if is_mask else default_color
 
-        def parse_kp(k):
-            flat = person.get(k, [])
-            if not flat: return np.zeros((0, 2)), np.zeros(0)
-            arr = np.array(flat, dtype=np.float32).reshape(-1, 3)
-            return arr[:, :2], arr[:, 2]
-
-        body_kp, body_sc = parse_kp('pose_keypoints_2d')
-        foot_kp, foot_sc = parse_kp('foot_keypoints_2d')
-        face_kp, face_sc = parse_kp('face_keypoints_2d')
-        lhand_kp, lhand_sc = parse_kp('hand_left_keypoints_2d')
-        rhand_kp, rhand_sc = parse_kp('hand_right_keypoints_2d')
+        # 🔥 优化3：直接从预解析好的结构中极速读取
+        body_kp, body_sc = parsed_person['body']
+        foot_kp, foot_sc = parsed_person['foot']
+        face_kp, face_sc = parsed_person['face']
+        lhand_kp, lhand_sc = parsed_person['lhand']
+        rhand_kp, rhand_sc = parsed_person['rhand']
 
         eps = 0.01
 
         # ================= 🛡️ 核心：多边形凸包内补及膨胀引擎 =================
-        if is_black:
+        if is_mask:
             def draw_expanded_hull(pts, hull_flag, hull_radius):
                 if not hull_flag or len(pts) == 0: return
-                
-                # 如果点数 >= 3 才算凸包；若为 1 或 2 个点则直接作为外扩对象，防止崩溃！
                 if len(pts) >= 3:
                     hull_pts = drawer.convexHull(pts)
                     if len(hull_pts) >= 3:
-                        drawer.fillConvexPoly(canvas, hull_pts, (0, 0, 0))
+                        drawer.fillConvexPoly(canvas, hull_pts, (255, 255, 255))
                 else:
                     hull_pts = pts 
 
-                # 闵可夫斯基和外延膨胀：描粗边 + 顶点画圆
                 if hull_radius > 0:
                     for i in range(len(hull_pts)):
                         p1 = hull_pts[i]
                         p2 = hull_pts[(i + 1) % len(hull_pts)]
-                        drawer.line(canvas, p1, p2, (0, 0, 0), thickness=hull_radius * 2)
-                        drawer.circle(canvas, p1, hull_radius, (0, 0, 0))
+                        drawer.line(canvas, p1, p2, (255, 255, 255), thickness=hull_radius * 2)
+                        drawer.circle(canvas, p1, hull_radius, (255, 255, 255))
 
-            # 躯干内补 (1=脖, 2=右肩, 5=左肩, 8=右髋, 11=左髋)
             body_hull_pts = [body_kp[idx] for idx in [1, 2, 5, 8, 11] if idx < len(body_kp) and body_sc[idx] >= score_threshold]
             draw_expanded_hull(body_hull_pts, b_hull, b_hr)
 
-            # 面部内补
             face_pts = [face_kp[i] for i in range(len(face_kp)) if face_sc[i] >= score_threshold]
             draw_expanded_hull(face_pts, f_hull, f_hr)
 
-            # 手部内补 (左右独立)
             lhand_pts = [lhand_kp[i] for i in range(len(lhand_kp)) if lhand_sc[i] >= score_threshold]
             rhand_pts = [rhand_kp[i] for i in range(len(rhand_kp)) if rhand_sc[i] >= score_threshold]
             draw_expanded_hull(lhand_pts, h_hull, h_hr)
             draw_expanded_hull(rhand_pts, h_hull, h_hr)
 
-            # 🔥 修复：脚部内补 (加入脚踝点！)
             mid_f = len(foot_kp) // 2
             lfoot_pts = [foot_kp[i] for i in range(mid_f) if foot_sc[i] >= score_threshold]
             rfoot_pts = [foot_kp[i] for i in range(mid_f, len(foot_kp)) if foot_sc[i] >= score_threshold]
-            
-            # 左脚踝为13，右脚踝为10。必须将它们计入对应的脚部凸包中，保证闭合！
-            if len(body_kp) > 13 and body_sc[13] >= score_threshold:
-                lfoot_pts.append(body_kp[13])
-            if len(body_kp) > 10 and body_sc[10] >= score_threshold:
-                rfoot_pts.append(body_kp[10])
-
+            if len(body_kp) > 13 and body_sc[13] >= score_threshold: lfoot_pts.append(body_kp[13])
+            if len(body_kp) > 10 and body_sc[10] >= score_threshold: rfoot_pts.append(body_kp[10])
             draw_expanded_hull(lfoot_pts, ft_hull, ft_hr)
             draw_expanded_hull(rfoot_pts, ft_hull, ft_hr)
 
 
         # ================= 1. 绘制身体点线 =================
-        if do_body_pts and len(body_kp) > 0:
+        if do_body_pts and len(body_kp) > 0 and stick_width > 0:
             for i, limb in enumerate(drawer.body_limbSeq):
                 idx1, idx2 = limb[0] - 1, limb[1] - 1
                 if idx1 >= len(body_kp) or idx2 >= len(body_kp): continue
@@ -1140,14 +1129,13 @@ class UniversalPoseRenderer:
                 x1, y1 = body_kp[idx1][0], body_kp[idx1][1]
                 x2, y2 = body_kp[idx2][0], body_kp[idx2][1]
                 
-                # 🔥 修复：分化渲染逻辑。黑底画等粗直线，彩色画原汁原味的椭圆！
-                if is_black:
+                if is_mask:
                     drawer.line(canvas, (x1, y1), (x2, y2), get_color(drawer.colors[i % len(drawer.colors)]), thickness=curr_body_radius * 2)
                 else:
                     length = math.hypot(x1 - x2, y1 - y2)
                     if length < 1: continue
                     angle = math.degrees(math.atan2(y1 - y2, x1 - x2))
-                    polygon = drawer.ellipse2Poly((int((x1+x2)/2), int((y1+y2)/2)), (int(length/2), stick_width), int(angle))
+                    polygon = drawer.ellipse2Poly((int((x1+x2)/2), int((y1+y2)/2)), (int(length/2), max(1, stick_width // 2)), int(angle))
                     drawer.fillConvexPoly(canvas, polygon, get_color(drawer.colors[i % len(drawer.colors)]))
 
             for i in range(len(body_kp)):
@@ -1157,7 +1145,7 @@ class UniversalPoseRenderer:
                     drawer.circle(canvas, (x, y), curr_body_radius, get_color(drawer.colors[i % len(drawer.colors)]))
 
         # ================= 2. 绘制脚部点线 =================
-        if do_foot_pts and len(foot_kp) > 0:
+        if do_foot_pts and len(foot_kp) > 0 and stick_width > 0:
             foot_len = len(foot_kp)
             mid = foot_len // 2  
             for i_f in range(foot_len):
@@ -1171,21 +1159,19 @@ class UniversalPoseRenderer:
                         ankle_idx = 13 if is_left else 10
                         if body_sc[ankle_idx] >= score_threshold:
                             ax, ay = int(body_kp[ankle_idx][0]), int(body_kp[ankle_idx][1])
-                            
-                            # 🔥 修复：分化脚踝连线逻辑。黑底画直线，彩色画原汁原味的椭圆！
-                            if is_black:
+                            if is_mask:
                                 drawer.line(canvas, (x, y), (ax, ay), color, thickness=curr_foot_radius * 2)
                             else:
                                 length = math.hypot(x - ax, y - ay)
                                 if length >= 1:
                                     angle = math.degrees(math.atan2(y - ay, x - ax))
-                                    polygon = drawer.ellipse2Poly((int((x+ax)/2), int((y+ay)/2)), (int(length/2), stick_width), int(angle))
+                                    polygon = drawer.ellipse2Poly((int((x+ax)/2), int((y+ay)/2)), (int(length/2), max(1, stick_width // 2)), int(angle))
                                     drawer.fillConvexPoly(canvas, polygon, color)
                     
                     drawer.circle(canvas, (x, y), curr_foot_radius, color)
 
         # ================= 3. 绘制手部点线 =================
-        if do_hand_pts:
+        if do_hand_pts and stick_width > 0:
             for hand_kp, hand_sc in [(lhand_kp, lhand_sc), (rhand_kp, rhand_sc)]:
                 if len(hand_kp) < 21: continue
                 for ie, edge in enumerate(drawer.hand_edges):
@@ -1196,8 +1182,9 @@ class UniversalPoseRenderer:
                     x2, y2 = int(hand_kp[idx2 - 92][0]), int(hand_kp[idx2 - 92][1])
                     if x1 > eps and y1 > eps and x2 > eps and y2 > eps:
                         if 0 <= x1 < w and 0 <= y1 < h and 0 <= x2 < w and 0 <= y2 < h:
-                            r, g, b = colorsys.hsv_to_rgb(ie / float(len(drawer.hand_edges)), 1.0, 1.0)
-                            drawer.line(canvas, (x1, y1), (x2, y2), get_color((int(r * 255), int(g * 255), int(b * 255))), thickness=curr_hand_line_thickness)
+                            color = drawer.hand_colors[ie]
+                            if is_mask: color = (255, 255, 255)
+                            drawer.line(canvas, (x1, y1), (x2, y2), color, thickness=curr_hand_line_thickness)
 
                 for i in range(len(hand_kp)):
                     if hand_sc[i] < score_threshold: continue
@@ -1206,72 +1193,183 @@ class UniversalPoseRenderer:
                         drawer.circle(canvas, (x, y), curr_hand_point_radius, get_color((0, 0, 255)))
 
         # ================= 4. 绘制面部点 =================
-        if do_face_pts and len(face_kp) > 0:
+        if do_face_pts and face_point_size > 0 and len(face_kp) > 0:
             for i in range(len(face_kp)):
                 if face_sc[i] < score_threshold: continue
                 x, y = int(face_kp[i][0]), int(face_kp[i][1])
                 if x > eps and y > eps and 0 <= x < w and 0 <= y < h:
                     drawer.circle(canvas, (x, y), curr_face_point_size, get_color((255, 255, 255)))
 
-    def render(self, keypoints, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, background_image=None, pose_black_background=None):
+    def render(self, keypoints, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, background_image=None, pose_background=None):
         import numpy as np
         drawer = UniversalKeypointDraw()
         out_frames = []
-
-        if not keypoints:
-            return (torch.zeros((1, 64, 64, 3), dtype=torch.float32),)
+        mask_frames = []
 
         if isinstance(keypoints, dict) and "people" in keypoints:
             keypoints = [keypoints]
         elif not isinstance(keypoints, list):
             print("UniversalPoseRenderer: 输入数据格式不正确，已回退为黑图。")
-            return (torch.zeros((1, 64, 64, 3), dtype=torch.float32),)
+            return (torch.zeros((1, 64, 64, 3), dtype=torch.float32), torch.zeros((1, 64, 64), dtype=torch.float32))
 
         if background_image is not None:
             if len(keypoints) != background_image.shape[0]:
-                raise ValueError(f"通用型pose渲染报错: 背景图像批次长度 ({background_image.shape[0]}) 与 骨骼批次长度 ({len(keypoints)}) 不一致！")
+                raise ValueError(f"万能渲染器报错: 背景图像批次长度 ({background_image.shape[0]}) 与 骨骼批次长度 ({len(keypoints)}) 不一致！")
             
             if len(keypoints) > 0:
                 h_kp = keypoints[0].get("canvas_height", 512)
                 w_kp = keypoints[0].get("canvas_width", 512)
                 img_h, img_w = background_image.shape[1], background_image.shape[2]
                 if img_h != h_kp or img_w != w_kp:
-                    raise ValueError(f"通用型pose渲染报错: 背景图像分辨率 ({img_w}x{img_h}) 与 骨骼画布分辨率 ({w_kp}x{h_kp}) 不一致！请使用 RescaleKeypoints 节点对齐骨骼分辨率，或者裁剪图像。")
-
+                    raise ValueError(f"万能渲染器报错: 背景图像分辨率 ({img_w}x{img_h}) 与 骨骼画布分辨率 ({w_kp}x{h_kp}) 不一致！请使用 RescaleKeypoints 节点对齐骨骼分辨率，或者裁剪图像。")
             bg_np_batch = (background_image * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
         else:
             bg_np_batch = None
             
-        if pose_black_background is None:
-            pose_black_background = {
+        if pose_background is None:
+            pose_background = {
+                'bg_color': "#000000", 'draw_only_bg': False,
                 'body_point_radius': 0, 'body_hull': False, 'body_infill_expand': 0,
                 'face_point_radius': 0, 'face_hull': False, 'face_infill_expand': 0,
                 'hand_point_radius': 0, 'hand_hull': False, 'hand_infill_expand': 0,
                 'foot_point_radius': 0, 'foot_hull': False, 'foot_infill_expand': 0,
             }
             
-        run_pass1 = any(bool(v) for v in pose_black_background.values())
+        bg_rgb = tuple(parse_color(pose_background.get('bg_color', "#000000")))
+        draw_only_bg = pose_background.get('draw_only_bg', False)
+        
+        run_mask_pass = any(v > 0 or v is True for k, v in pose_background.items() if 'radius' in k or 'hull' in k or 'expand' in k)
+
+        # 🔥 优化4：定义轻量化解析器，跳出双重渲染循环
+        def parse_kp_fast(person, k):
+            flat = person.get(k, [])
+            if not flat: return np.zeros((0, 2), dtype=np.float32), np.zeros(0, dtype=np.float32)
+            arr = np.array(flat, dtype=np.float32).reshape(-1, 3)
+            return arr[:, :2], arr[:, 2]
 
         for f_idx, frame in enumerate(keypoints):
             h = frame.get("canvas_height", 512)
             w = frame.get("canvas_width", 512)
             
+            # 🔥 预解析当前帧的所有角色数据，彻底消灭重复 Numpy reshape 开销
+            parsed_people = []
+            for person in frame.get("people", []):
+                parsed_people.append({
+                    'body': parse_kp_fast(person, 'pose_keypoints_2d'),
+                    'foot': parse_kp_fast(person, 'foot_keypoints_2d'),
+                    'face': parse_kp_fast(person, 'face_keypoints_2d'),
+                    'lhand': parse_kp_fast(person, 'hand_left_keypoints_2d'),
+                    'rhand': parse_kp_fast(person, 'hand_right_keypoints_2d')
+                })
+            
             if bg_np_batch is not None:
                 canvas = bg_np_batch[f_idx].copy()
             else:
                 canvas = np.zeros((h, w, 3), dtype=np.uint8)
+                
+            mask_canvas = np.zeros((h, w, 3), dtype=np.uint8)
 
-            if run_pass1:
-                for person in frame.get("people", []):
-                    self.draw_person_pose(canvas, person, 'black', drawer, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, pose_black_background, w, h)
+            if run_mask_pass:
+                for pp in parsed_people:
+                    self.draw_person_pose(mask_canvas, pp, 'mask', drawer, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, pose_background, w, h)
+                
+                mask_2d = mask_canvas[:, :, 0] > 0
+                canvas[mask_2d] = bg_rgb
+            else:
+                mask_2d = np.zeros((h, w), dtype=bool)
 
-            for person in frame.get("people", []):
-                self.draw_person_pose(canvas, person, 'color', drawer, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, pose_black_background, w, h)
+            if not draw_only_bg:
+                for pp in parsed_people:
+                    self.draw_person_pose(canvas, pp, 'color', drawer, draw_body, draw_hands, draw_face, draw_feet, connect_feet, score_threshold, stick_width, face_point_size, pose_background, w, h)
 
             out_frames.append(canvas)
+            mask_frames.append(mask_2d.astype(np.uint8) * 255)
 
         out_tensor = torch.from_numpy(np.stack(out_frames)).float() / 255.0
-        return (out_tensor,)
+        mask_tensor = torch.from_numpy(np.stack(mask_frames)).float() / 255.0
+        return (out_tensor, mask_tensor)
+
+
+# ================= ✏️ 通用型 Pose 编辑器 (基础解析引擎) =================
+class UniversalPoseEditor:
+    @classmethod
+    def INPUT_TYPES(s):
+        # 提供一个标准单帧的初始空模版，防止初次加载时报错
+        default_json = '{\n  "canvas_width": 512,\n  "canvas_height": 512,\n  "people": []\n}'
+        return {
+            "required": {
+                "pose_json": ("STRING", {"multiline": True, "default": default_json, "tooltip": "在此输入合法的单帧 OpenPose JSON 格式字符串"}),
+            },
+            "optional": {
+                "background_image": ("IMAGE", {"tooltip": "背景图片"}),
+            }
+        }
+        
+    RETURN_TYPES = ("POSE_KEYPOINT",)
+    # 🔥 必须设置为 True，否则 ComfyUI 不会把该节点的 {"ui": ...} 返回给前端
+    OUTPUT_NODE = True 
+    FUNCTION = "parse_pose"
+    CATEGORY = "Data_Tool/Data_Pose"
+
+    def parse_pose(self, pose_json, background_image=None):
+        import json
+        import os
+        import uuid
+        import numpy as np
+        import folder_paths
+        from PIL import Image
+        
+        # 标准的默认空白画布结构，用于发生异常时进行软回退
+        default_data = {"canvas_width": 512, "canvas_height": 512, "people": []}
+
+        # 1. 软拦截：非法的 JSON 字符串
+        try:
+            if not pose_json or not pose_json.strip():
+                data = default_data
+            else:
+                data = json.loads(pose_json)
+        except json.JSONDecodeError as e:
+            print(f"\n⚠️ [Data_Tool 警告] Pose编辑器: 文本框内容不是合法JSON。已静默回退为空白画布。")
+            data = default_data
+
+        # 2. 软拦截：多帧序列 (提取第一帧，绝不报错)
+        if isinstance(data, list):
+            if len(data) >= 1:
+                if len(data) > 1:
+                    print(f"\n⚠️ [Data_Tool 警告] Pose编辑器: 检测到序列批次输入！编辑器仅支持单帧，已自动截断保留第 0 帧。")
+                data = data[0]
+            else:
+                data = default_data
+        
+        # 3. 软拦截：损坏的骨架字典
+        if not isinstance(data, dict) or "people" not in data:
+            print(f"\n⚠️ [Data_Tool 警告] Pose编辑器: 骨架结构损坏。已静默回退为空白画布。")
+            data = default_data
+
+        # ================= 底图张量跨端转换逻辑 =================
+        ui_update = {}
+        if background_image is not None:
+            # 取批次的第 0 帧，剥离 Batch 维度: (1, H, W, C) -> (H, W, C)
+            img_tensor = background_image[0]
+            # 缩放至 0-255 并转为 uint8 格式
+            img_np = (img_tensor.cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
+            pil_img = Image.fromarray(img_np)
+            
+            # 存入 ComfyUI 官方的 temp 临时文件夹中
+            temp_dir = folder_paths.get_temp_directory()
+            filename = f"pose_editor_bg_{uuid.uuid4().hex[:8]}.png"
+            file_path = os.path.join(temp_dir, filename)
+            pil_img.save(file_path)
+            
+            # 按照 ComfyUI PreviewImage 的标准格式发送给前端
+            ui_update = {"background_image": [{"filename": filename, "subfolder": "", "type": "temp"}]}
+
+        result_data = ([data],)
+        
+        if ui_update:
+            return {"ui": ui_update, "result": result_data}
+        else:
+            return {"result": result_data}
 
 
 NODE_CLASS_MAPPINGS = {
@@ -1279,8 +1377,9 @@ NODE_CLASS_MAPPINGS = {
     "KeypointConfidenceModifier": KeypointConfidenceModifier,
     "KeypointHandFilter": KeypointHandFilter,
     "SDPoseToViTPoseFoot": SDPoseToViTPoseFoot,
-    "PoseBlackBackgroundOptions": PoseBlackBackgroundOptions,
+    "PoseBackgroundOptions": PoseBackgroundOptions,
     "UniversalPoseRenderer": UniversalPoseRenderer,
+    "UniversalPoseEditor": UniversalPoseEditor,
 
     "NLF_Pose_Orientation": NLF_Pose_Orientation,
     "NLF_Orientation_Parser": NLF_Orientation_Parser,
@@ -1292,8 +1391,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "KeypointConfidenceModifier": "🎯 置信修改 Keypoint Confidence Modifier",
     "KeypointHandFilter": "✋ 手部过滤 Keypoint Hand Filter",
     "SDPoseToViTPoseFoot": "🦶 sd转vit脚 SDPose To ViTPose Foot",
-    "PoseBlackBackgroundOptions": "黑背景选项 Pose Black Background Options",
+    "PoseBackgroundOptions": "背景选项 Pose Background Options",
     "UniversalPoseRenderer": "🎥 姿态渲染 Universal Pose Renderer",
+    "UniversalPoseEditor": "✏️ 姿态编辑 Universal Pose Editor",
 
     "NLF_Pose_Orientation": "🧭 NLF 骨骼朝向 Pose Orientation",
     "NLF_Orientation_Parser": "🧭 NLF 朝向解析 Orientation Parser",
