@@ -866,11 +866,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         if (e.button === 1 || e.buttons === 4) { dragType = 'pan'; return; }
         if (state.bg.drag_mode) { dragType = 'bg'; return; }
 
-        if (bbox && wx >= bbox.x && wx <= bbox.x + bbox.w && wy >= bbox.y && wy <= bbox.y + bbox.h) {
-            dragType = 'points'; window._dt_pts_moved = false; return;
-        }
-
-        // 命中测试：具体点位 (最小距离竞优算法，精准命中)
+        // 1. 最高优先级：具体点位命中测试 (最小距离竞优，精准命中)
         let hitId = null;
         let minHitDist = Infinity;
         let hitRadius = state.ui.point_size;
@@ -895,21 +891,37 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
 
         if (hitId) {
             if (e.shiftKey) {
-                if (selSet.has(hitId)) selSet.delete(hitId);
-                else selSet.add(hitId);
+                if (selSet.has(hitId)) {
+                    selSet.delete(hitId); // 再次点击已选中的点，取消选中
+                    dragType = null;      // 🔥 核心：剥夺拖拽权限，保持原地不动
+                } else {
+                    selSet.add(hitId);    // 按住 Shift 点未选中的点，追加选中
+                    dragType = 'points';
+                }
             } else {
-                if (!selSet.has(hitId)) { selSet.clear(); selSet.add(hitId); }
+                if (!selSet.has(hitId)) {
+                    selSet.clear();       // 没按 Shift 点未选中的点，清空其他单选此点
+                    selSet.add(hitId);
+                }
+                dragType = 'points';      // (若点已选中，则原样进入拖拽逻辑)
             }
-            calcBBox(); dragType = 'points'; window._dt_pts_moved = false; drawCanvas(); renderTree();
+            calcBBox(); window._dt_pts_moved = false; drawCanvas(); renderTree();
             return;
         }
 
+        // 2. 次级优先级：命中多选边界框内的空白处
+        if (bbox && wx >= bbox.x && wx <= bbox.x + bbox.w && wy >= bbox.y && wy <= bbox.y + bbox.h) {
+            dragType = 'points'; window._dt_pts_moved = false; return;
+        }
+
+        // 3. 最低优先级：命中框外纯空白处，开始框选
         dragType = 'marquee';
         if (!e.shiftKey) selSet.clear();
         calcBBox();
         marqueeStart = { x: wx, y: wy }; marqueeEnd = { x: wx, y: wy };
         drawCanvas(); renderTree();
     });
+
 
 
     cvs.addEventListener("mousemove", (e) => {
