@@ -135,6 +135,10 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
                             <input type="range" id="dt-ui-pts-slider" min="1" max="15" step="1" value="${state.ui.point_size}" style="width: 80px; margin-left:5px;">
                             <input type="number" id="dt-ui-pts-num" min="1" max="15" step="1" value="${state.ui.point_size}" style="width: 45px; margin-left:5px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
                         </label>
+                        <label style="display:flex; align-items:center; margin-left:10px;">${T("Pose不透明度:")}
+                            <input type="range" id="dt-ui-pose-op-slider" min="0" max="1" step="0.05" value="${state.ui.pose_opacity}" style="width: 80px; margin-left:5px;">
+                            <input type="number" id="dt-ui-pose-op-num" min="0" max="1" step="0.05" value="${state.ui.pose_opacity}" style="width: 55px; margin-left:5px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
+                        </label>
                         <label style="display:flex; align-items:center; margin-left:10px;">${T("阈值:")}
                             <input type="range" id="dt-ui-thresh-slider" min="0" max="1" step="0.01" value="${state.ui.threshold}" style="width: 80px; margin-left:5px;">
                             <input type="number" id="dt-ui-thresh-num" min="0" max="1" step="0.01" value="${state.ui.threshold}" style="width: 55px; margin-left:5px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
@@ -149,8 +153,26 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
                     </div>
                 </div>
                 
+                <!-- Canvas 舞台容器与悬浮控制面板 -->
                 <div id="dt-canvas-wrapper" style="flex: 1; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center;">
-                    <canvas id="dt-canvas" style="background: #111; box-shadow: 0 0 15px rgba(0,0,0,0.8);"></canvas>
+                    <canvas id="dt-canvas" style="background: #111; box-shadow: 0 0 15px rgba(0,0,0,0.8); z-index: 1;"></canvas>
+
+                    <!-- 多选变换浮动面板 -->
+                    <div id="dt-float-panel" style="position: absolute; top: 15px; right: 15px; background: rgba(34, 34, 34, 0.9); border: 1px solid #555; border-radius: 6px; padding: 10px; display: none; flex-direction: column; gap: 8px; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+                        <div style="font-weight: bold; font-size: 13px; color: #ccc; text-align: center; margin-bottom: 4px; border-bottom: 1px solid #555; padding-bottom: 5px;">${T("多选变换控制")}</div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("锚点 X")}</span><input id="dt-fp-px" type="number" step="any" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("锚点 Y")}</span><input id="dt-fp-py" type="number" step="any" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("中心偏移 X")}</span><input id="dt-fp-ox" type="number" step="any" value="0.000" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("中心偏移 Y")}</span><input id="dt-fp-oy" type="number" step="any" value="0.000" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("旋转(°)")}</span><input id="dt-fp-rot" type="number" step="any" value="0.000" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("缩放 X")}</span><input id="dt-fp-sx" type="number" step="any" value="1.000" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("缩放 Y")}</span><input id="dt-fp-sy" type="number" step="any" value="1.000" style="width:70px; background:#111; color:#fff; border:1px solid #666; padding:2px;"></div>
+                        <div style="display: flex; gap: 8px; align-items: center;"><span style="width:75px; font-size:12px; color:#aaa;">${T("同步缩放")}</span><input id="dt-fp-sync-scale" type="checkbox" style="cursor:pointer; margin-left:2px;"></div>
+                        <div style="display: flex; gap: 8px; width: 100%; margin-top: 6px; border-top: 1px solid #444; padding-top: 8px;">
+                            <button id="dt-fp-btn-reset" style="flex: 1; background: #3a3a3a; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 12px; padding: 5px 0; cursor: pointer; text-align: center; transition: background 0.2s;" onmouseover="this.style.background='#4a4a4a'" onmouseout="this.style.background='#3a3a3a'">${T("重设")}</button>
+                            <button id="dt-fp-btn-revert" style="flex: 1; background: #3a3a3a; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 12px; padding: 5px 0; cursor: pointer; text-align: center; transition: background 0.2s;" onmouseover="this.style.background='#4a4a4a'" onmouseout="this.style.background='#3a3a3a'">${T("归位")}</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -192,6 +214,9 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
 
         let ptsVal = parseInt(document.getElementById("dt-ui-pts-num").value);
         state.ui.point_size = isNaN(ptsVal) ? 4 : ptsVal;
+
+        let poseOpVal = parseFloat(document.getElementById("dt-ui-pose-op-num").value);
+        state.ui.pose_opacity = isNaN(poseOpVal) ? 1.0 : Math.max(0, Math.min(1, poseOpVal));
 
         let thVal = parseFloat(document.getElementById("dt-ui-thresh-num").value);
         state.ui.threshold = isNaN(thVal) ? 0.3 : thVal;
@@ -251,13 +276,46 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     const backupPose = JSON.parse(JSON.stringify(poseData));
     let bgImgObject = null;
 
-    // 🔥 历史记录与撤回/重做引擎 (Ctrl+Z / Ctrl+Y)
+    // 自由变换(Transform)核心变量 (提前声明以防止 TDZ / 悬空引用)
+    let pivot = null;
+    let pivotRelativeX = 0.5, pivotRelativeY = 0.5;
+    let bboxAngle = 0; // 绕锚点旋转的角度（弧度）
+    let bboxScaleX = 1.0;
+    let bboxScaleY = 1.0;
+    let lastSelKey = "";
+    let innerBbox = null, outerBbox = null;
+    let initialBboxCenter = null; // 选择开始时的初始包围盒中心点，用于计算中心偏移量
+    let selectionStartPointsSnapshot = {}; // 选择开始时所有被选中关键点的初始坐标快照，用于“归位”操作
+
+    // 拖拽时的起始数值，用于解析计算有向包围盒(OBB)的缩放和旋转
+    let startBboxAngle = 0;
+    let startBboxCenter = { x: 0, y: 0 };
+    let startBboxWidth = 0;
+    let startBboxHeight = 0;
+    let startPivot = { x: 0, y: 0 };
+    let startBboxScaleX = 1.0;
+    let startBboxScaleY = 1.0;
+
+    // 🔥 历史记录与撤回引擎 (Ctrl+Z)
     let poseHistory = [];
     let redoHistory = []; // 新增重做栈
 
     const saveHistory = () => {
         if (poseHistory.length > 30) poseHistory.shift();
-        poseHistory.push(JSON.stringify(workingPose));
+        poseHistory.push(JSON.stringify({
+            workingPose: workingPose,
+            pivot: pivot ? { x: pivot.x, y: pivot.y } : null,
+            pivotRelativeX: pivotRelativeX,
+            pivotRelativeY: pivotRelativeY,
+            bboxAngle: bboxAngle,
+            bboxScaleX: bboxScaleX,
+            bboxScaleY: bboxScaleY,
+            innerBbox: innerBbox ? { cx: innerBbox.cx, cy: innerBbox.cy, w: innerBbox.w, h: innerBbox.h } : null,
+            outerBbox: outerBbox ? { cx: outerBbox.cx, cy: outerBbox.cy, w: outerBbox.w, h: outerBbox.h } : null,
+            lastSelKey: lastSelKey,
+            initialBboxCenter: initialBboxCenter ? { x: initialBboxCenter.x, y: initialBboxCenter.y } : null,
+            selectionStartPointsSnapshot: selectionStartPointsSnapshot ? JSON.parse(JSON.stringify(selectionStartPointsSnapshot)) : {}
+        }));
         redoHistory = []; // 一旦有任何新的手动操作，彻底清空重做栈
     };
     saveHistory(); // 保存初始状态
@@ -271,19 +329,41 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
             e.preventDefault();
             if (poseHistory.length > 1) {
-                // 撤回逻辑：把当前状态压入重做栈，并读取上一步
                 redoHistory.push(poseHistory.pop());
-                workingPose = JSON.parse(poseHistory[poseHistory.length - 1]);
-                calcBBox(); drawCanvas(); renderTree();
+                const histState = JSON.parse(poseHistory[poseHistory.length - 1]);
+                workingPose = histState.workingPose;
+                pivot = histState.pivot;
+                pivotRelativeX = histState.pivotRelativeX;
+                pivotRelativeY = histState.pivotRelativeY;
+                bboxAngle = histState.bboxAngle || 0;
+                bboxScaleX = histState.bboxScaleX !== undefined ? histState.bboxScaleX : 1.0;
+                bboxScaleY = histState.bboxScaleY !== undefined ? histState.bboxScaleY : 1.0;
+                innerBbox = histState.innerBbox;
+                outerBbox = histState.outerBbox;
+                lastSelKey = histState.lastSelKey || "";
+                initialBboxCenter = histState.initialBboxCenter;
+                selectionStartPointsSnapshot = histState.selectionStartPointsSnapshot || {};
+                calcBBox(true); drawCanvas(); renderTree();
             }
         } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
             e.preventDefault();
             if (redoHistory.length > 0) {
-                // 重做逻辑：从重做栈弹出下一步，压回历史栈，并渲染
                 const nextState = redoHistory.pop();
                 poseHistory.push(nextState);
-                workingPose = JSON.parse(nextState);
-                calcBBox(); drawCanvas(); renderTree();
+                const histState = JSON.parse(nextState);
+                workingPose = histState.workingPose;
+                pivot = histState.pivot;
+                pivotRelativeX = histState.pivotRelativeX;
+                pivotRelativeY = histState.pivotRelativeY;
+                bboxAngle = histState.bboxAngle || 0;
+                bboxScaleX = histState.bboxScaleX !== undefined ? histState.bboxScaleX : 1.0;
+                bboxScaleY = histState.bboxScaleY !== undefined ? histState.bboxScaleY : 1.0;
+                innerBbox = histState.innerBbox;
+                outerBbox = histState.outerBbox;
+                lastSelKey = histState.lastSelKey || "";
+                initialBboxCenter = histState.initialBboxCenter;
+                selectionStartPointsSnapshot = histState.selectionStartPointsSnapshot || {};
+                calcBBox(true); drawCanvas(); renderTree();
             }
         }
     };
@@ -292,12 +372,15 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     // 🔥 第三阶段交互状态引擎变量
     let selSet = new Set();
     let lockSet = new Set();
-    let v_scale = 1.0, v_x = 0, v_y = 0; // 画布视口缩放与平移
-    let isFirstDraw = true; // 用于首次自动居中缩放
-    let isDragging = false, dragType = null;
-    let lastMx = 0, lastMy = 0;
+    let v_scale = 1.0, v_x = 0, v_y = 0; // 视口缩放与平移
+    let isFirstDraw = true;
+    let isDragging = false, dragType = null; // 'pan', 'bg', 'points', 'marquee', 'pivot', 'handle', 'rotate'
+    let lastMx = 0, lastMy = 0, startMx = 0, startMy = 0;
     let marqueeStart = null, marqueeEnd = null;
-    let bbox = null;
+
+    // 自由变换(Transform)核心变量
+    let transformSnapshot = [], transformAnchor = null, activeHandle = null;
+    let startAngle = 0;
 
     const cvs = document.getElementById("dt-canvas");
     const ctx = cvs.getContext("2d");
@@ -305,6 +388,182 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     // 缩小新增人物按钮前后的空隙
     document.getElementById("dt-t-add").parentElement.style.padding = "5px 10px";
     document.getElementById("dt-tree-container").style.padding = "5px 10px";
+
+    // 浮动面板 UI 同步器
+    const updateFloatPanelUI = () => {
+        const panel = document.getElementById("dt-float-panel");
+        if (selSet.size <= 1) { panel.style.display = "none"; return; }
+        panel.style.display = "flex";
+
+        // 恢复之前保存的位置并限制在画布包装区内
+        if (state.ui && state.ui.float_panel_pos && state.ui.float_panel_pos.left !== undefined) {
+            panel.style.right = 'auto';
+            const wrapper = document.getElementById("dt-canvas-wrapper");
+            let targetLeft = state.ui.float_panel_pos.left;
+            let targetTop = state.ui.float_panel_pos.top;
+            if (wrapper) {
+                const maxLeft = Math.max(0, wrapper.clientWidth - panel.offsetWidth);
+                const maxTop = Math.max(0, wrapper.clientHeight - panel.offsetHeight);
+                targetLeft = Math.max(0, Math.min(targetLeft, maxLeft));
+                targetTop = Math.max(0, Math.min(targetTop, maxTop));
+            }
+            panel.style.left = targetLeft + 'px';
+            panel.style.top = targetTop + 'px';
+        } else {
+            panel.style.right = '15px';
+            panel.style.top = '15px';
+            panel.style.left = 'auto';
+        }
+
+        if (pivot) {
+            document.getElementById("dt-fp-px").value = parseFloat(pivot.x.toFixed(3));
+            document.getElementById("dt-fp-py").value = parseFloat(pivot.y.toFixed(3));
+        }
+        const ox = innerBbox && initialBboxCenter ? innerBbox.cx - initialBboxCenter.x : 0.0;
+        const oy = innerBbox && initialBboxCenter ? innerBbox.cy - initialBboxCenter.y : 0.0;
+        document.getElementById("dt-fp-ox").value = ox.toFixed(3);
+        document.getElementById("dt-fp-oy").value = oy.toFixed(3);
+        document.getElementById("dt-fp-sx").value = bboxScaleX.toFixed(3);
+        document.getElementById("dt-fp-sy").value = bboxScaleY.toFixed(3);
+        document.getElementById("dt-fp-rot").value = (bboxAngle * (180 / Math.PI)).toFixed(3);
+    };
+
+    // 核心矩阵变换器
+    const applyTransform = (snapshot, sx, sy, angleDeg, origin) => {
+        const rad = angleDeg * (Math.PI / 180);
+        const cos_rot = Math.cos(rad), sin_rot = Math.sin(rad);
+        const cos0 = Math.cos(startBboxAngle);
+        const sin0 = Math.sin(startBboxAngle);
+        snapshot.forEach(pt => {
+            const { p, arr, i, ox, oy } = pt;
+            // 1. 计算相对于变换锚点(anchor)的坐标偏移
+            const dx = ox - origin.x;
+            const dy = oy - origin.y;
+            // 2. 投影到起始有向包围盒(OBB)的局部轴上
+            const lx = dx * cos0 + dy * sin0;
+            const ly = -dx * sin0 + dy * cos0;
+            // 3. 沿局部轴进行缩放
+            const lx_scaled = lx * sx;
+            const ly_scaled = ly * sy;
+            // 4. 转换回与起始 OBB 对齐的世界坐标
+            const nx = origin.x + lx_scaled * cos0 - ly_scaled * sin0;
+            const ny = origin.y + lx_scaled * sin0 + ly_scaled * cos0;
+            // 5. 绕中心锚点(pivot)旋转 angleDeg 角度
+            let rx, ry;
+            if (angleDeg !== 0) {
+                rx = pivot.x + (nx - pivot.x) * cos_rot - (ny - pivot.y) * sin_rot;
+                ry = pivot.y + (nx - pivot.x) * sin_rot + (ny - pivot.y) * cos_rot;
+            } else {
+                rx = nx;
+                ry = ny;
+            }
+            workingPose.people[p][arr][i * 3] = rx;
+            workingPose.people[p][arr][i * 3 + 1] = ry;
+            // 实时同步左侧树数值
+            const inX = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="0"]`);
+            const inY = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="1"]`);
+            if (inX) inX.value = Math.round(rx);
+            if (inY) inY.value = Math.round(ry);
+        });
+    };
+
+    // 抓取当前快照
+    const createSnapshot = () => {
+        transformSnapshot = [];
+        selSet.forEach(id => {
+            if (lockSet.has(id)) return;
+            const [p, arr, i] = id.split('|');
+            transformSnapshot.push({ p, arr, i, ox: workingPose.people[p][arr][i * 3], oy: workingPose.people[p][arr][i * 3 + 1] });
+        });
+    };
+
+    const getSelKey = () => {
+        const ids = Array.from(selSet);
+        ids.sort();
+        return ids.join(",");
+    };
+
+    const calcBBox = (keepPivot = false) => {
+        if (selSet.size <= 1) {
+            innerBbox = null;
+            outerBbox = null;
+            pivot = null;
+            bboxAngle = 0;
+            bboxScaleX = 1.0;
+            bboxScaleY = 1.0;
+            lastSelKey = "";
+            initialBboxCenter = null;
+            updateFloatPanelUI();
+            return;
+        }
+        const currentSelKey = getSelKey();
+        if (currentSelKey !== lastSelKey) {
+            // 全新选择：计算 AABB 并重置角度与缩放
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            selSet.forEach(id => {
+                const [p, arr, i] = id.split('|');
+                const x = workingPose.people[p][arr][i * 3], y = workingPose.people[p][arr][i * 3 + 1];
+                if (x < minX) minX = x; if (y < minY) minY = y;
+                if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+            });
+            innerBbox = { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+            outerBbox = { cx: innerBbox.cx, cy: innerBbox.cy, w: innerBbox.w + 30, h: innerBbox.h + 30 };
+            bboxAngle = 0;
+            bboxScaleX = 1.0;
+            bboxScaleY = 1.0;
+            pivot = { x: innerBbox.cx, y: innerBbox.cy };
+            lastSelKey = currentSelKey;
+            initialBboxCenter = { x: innerBbox.cx, y: innerBbox.cy };
+
+            // 保存初始选中的关键点坐标快照
+            selectionStartPointsSnapshot = {};
+            selSet.forEach(id => {
+                const [p, arr, i] = id.split('|');
+                selectionStartPointsSnapshot[id] = {
+                    x: workingPose.people[p][arr][i * 3],
+                    y: workingPose.people[p][arr][i * 3 + 1]
+                };
+            });
+        } else {
+            // 相同选择
+            if (isDragging) {
+                // 拖拽期间，拖拽处理器解析地计算 OBB，所以我们不需要从点坐标重新计算！
+                if (dragType === 'handle') {
+                    const cos = Math.cos(bboxAngle);
+                    const sin = Math.sin(bboxAngle);
+                    const lx_pivot_new = (pivotRelativeX - 0.5) * innerBbox.w;
+                    const ly_pivot_new = (pivotRelativeY - 0.5) * innerBbox.h;
+                    pivot = {
+                        x: innerBbox.cx + lx_pivot_new * cos - ly_pivot_new * sin,
+                        y: innerBbox.cy + lx_pivot_new * sin + ly_pivot_new * cos
+                    };
+                }
+            } else {
+                // 选择相同但我们没有在拖拽（可能是撤销/重做、点输入变化、或刚结束拖拽）。
+                // 如果 keepPivot 为 true，我们保留 innerBbox, outerBbox 和 bboxAngle（例如在控制面板编辑或撤销/重做之后）。
+                if (keepPivot) {
+                    // 不要从绝对坐标重建；保留 OBB 结构！
+                } else {
+                    // 从点坐标重建 AABB 并重置角度，因为在变换之外发生了手动点位编辑
+                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                    selSet.forEach(id => {
+                        const [p, arr, i] = id.split('|');
+                        const x = workingPose.people[p][arr][i * 3], y = workingPose.people[p][arr][i * 3 + 1];
+                        if (x < minX) minX = x; if (y < minY) minY = y;
+                        if (x > maxX) maxX = x; if (y > maxY) maxY = y;
+                    });
+                    innerBbox = { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+                    outerBbox = { cx: innerBbox.cx, cy: innerBbox.cy, w: innerBbox.w + 30, h: innerBbox.h + 30 };
+                    bboxAngle = 0;
+                    bboxScaleX = 1.0;
+                    bboxScaleY = 1.0;
+                    pivot = { x: innerBbox.cx, y: innerBbox.cy };
+                    initialBboxCenter = { x: innerBbox.cx, y: innerBbox.cy };
+                }
+            }
+        }
+        updateFloatPanelUI();
+    };
 
     // 官方连线字典与彩虹色谱
     const body_limbSeq = [[1, 2], [1, 5], [2, 3], [3, 4], [5, 6], [6, 7], [1, 8], [8, 9], [9, 10], [1, 11], [11, 12], [12, 13], [1, 0], [0, 14], [14, 16], [0, 15], [15, 17]];
@@ -315,18 +574,6 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         let r, g, b, i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
         switch (i % 6) { case 0: r = v, g = t, b = p; break; case 1: r = q, g = v, b = p; break; case 2: r = p, g = v, b = t; break; case 3: r = p, g = q, b = v; break; case 4: r = t, g = p, b = v; break; case 5: r = v, g = p, b = q; break; }
         return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    };
-
-    const calcBBox = () => {
-        if (selSet.size <= 1) { bbox = null; return; }
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        selSet.forEach(id => {
-            const [p, arr, i] = id.split('|');
-            const x = workingPose.people[p][arr][i * 3], y = workingPose.people[p][arr][i * 3 + 1];
-            if (x < minX) minX = x; if (y < minY) minY = y;
-            if (x > maxX) maxX = x; if (y > maxY) maxY = y;
-        });
-        bbox = { x: minX - 15, y: minY - 15, w: maxX - minX + 30, h: maxY - minY + 30 };
     };
 
     // 2. 无边界视口极速重绘引擎
@@ -373,6 +620,10 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         }
 
         const radius = state.ui.point_size;
+
+        // 🔥 注入 Pose 的透明度状态
+        ctx.globalAlpha = state.ui.pose_opacity;
+
         workingPose.people.forEach((p, pIdx) => {
             // 🔥 核心：增加置信度 <= 0 的彻底隐藏判定
             const getPt = (arr, i) => {
@@ -385,7 +636,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
 
             body_limbSeq.forEach((limb, i) => {
                 const pt1 = getPt('pose_keypoints_2d', limb[0]), pt2 = getPt('pose_keypoints_2d', limb[1]);
-                if (pt1 && pt2) { ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y); ctx.strokeStyle = `rgb(${colors[i % colors.length].join(',')})`; ctx.lineWidth = 4; ctx.stroke(); }
+                if (pt1 && pt2) { ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y); ctx.strokeStyle = `rgb(${colors[i % colors.length].join(',')})`; ctx.lineWidth = 2; ctx.stroke(); }
             });
             ['hand_left_keypoints_2d', 'hand_right_keypoints_2d'].forEach(k => {
                 hand_edges.forEach((edge, i) => {
@@ -405,7 +656,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                         const ptA = getPt('pose_keypoints_2d', ankleIdx);
                         if (ptA) {
                             ctx.beginPath(); ctx.moveTo(ptF.x, ptF.y); ctx.lineTo(ptA.x, ptA.y);
-                            ctx.strokeStyle = `rgb(${colors[(18 + i) % colors.length].join(',')})`; ctx.lineWidth = 4; ctx.stroke();
+                            ctx.strokeStyle = `rgb(${colors[(18 + i) % colors.length].join(',')})`; ctx.lineWidth = 2; ctx.stroke();
                         }
                     }
                 }
@@ -427,6 +678,9 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             drawPts('face_keypoints_2d', 'white');
         });
 
+        // 🔥 必须重置透明度，防止虚线框和边界框变淡
+        ctx.globalAlpha = 1.0;
+
         // 画布边缘的白虚线，盖在所有骨骼和图片之上
         ctx.beginPath();
         ctx.rect(0, 0, cw, ch);
@@ -436,10 +690,55 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        if (bbox) {
-            ctx.beginPath(); ctx.rect(bbox.x, bbox.y, bbox.w, bbox.h);
-            ctx.lineWidth = 2 / v_scale; ctx.strokeStyle = "#4CAF50"; ctx.setLineDash([5 / v_scale, 5 / v_scale]); ctx.stroke(); ctx.setLineDash([]);
-            ctx.fillStyle = "rgba(76, 175, 80, 0.1)"; ctx.fill();
+        // 🔥 绘制自由变换控件
+        if (outerBbox && innerBbox && pivot) {
+            ctx.save();
+            ctx.translate(innerBbox.cx, innerBbox.cy);
+            ctx.rotate(bboxAngle);
+
+            // 1. 真实边界框 (内框，半透明白虚线)
+            ctx.beginPath();
+            ctx.rect(-innerBbox.w / 2, -innerBbox.h / 2, innerBbox.w, innerBbox.h);
+            ctx.lineWidth = 1 / v_scale;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.setLineDash([4 / v_scale, 4 / v_scale]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 2. 交互边界框 (外框，绿色底)
+            ctx.beginPath();
+            ctx.rect(-outerBbox.w / 2, -outerBbox.h / 2, outerBbox.w, outerBbox.h);
+            ctx.lineWidth = 1.5 / v_scale;
+            ctx.strokeStyle = "#4CAF50";
+            ctx.stroke();
+            ctx.fillStyle = "rgba(76, 175, 80, 0.05)";
+            ctx.fill();
+
+            // 3. 绘制 8 个控制柄
+            const hs = 9 / v_scale; // handle size
+            const drawH = (lx, ly) => {
+                ctx.fillRect(lx - hs / 2, ly - hs / 2, hs, hs);
+                ctx.strokeRect(lx - hs / 2, ly - hs / 2, hs, hs);
+            };
+            ctx.fillStyle = "#fff";
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 1 / v_scale;
+
+            const ow = outerBbox.w, oh = outerBbox.h;
+            drawH(-ow / 2, -oh / 2); drawH(0, -oh / 2); drawH(ow / 2, -oh / 2);
+            drawH(-ow / 2, 0); drawH(ow / 2, 0);
+            drawH(-ow / 2, oh / 2); drawH(0, oh / 2); drawH(ow / 2, oh / 2);
+
+            ctx.restore();
+
+            // 4. 绘制十字准星锚点 (Pivot) (🔥 调大尺寸并增加亮黄色醒目底板)
+            const pr = 9 / v_scale, pl = 12 / v_scale; // pr=圆心半径, pl=十字线长度
+            ctx.beginPath(); ctx.arc(pivot.x, pivot.y, pr, 0, Math.PI * 2);
+            ctx.fillStyle = "#FFEB3B"; ctx.fill();
+            ctx.lineWidth = 1.5 / v_scale; ctx.strokeStyle = "#222"; ctx.stroke();
+
+            ctx.beginPath(); ctx.moveTo(pivot.x, pivot.y - pl); ctx.lineTo(pivot.x, pivot.y + pl); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(pivot.x - pl, pivot.y); ctx.lineTo(pivot.x + pl, pivot.y); ctx.stroke();
         }
 
         if (dragType === 'marquee' && marqueeStart && marqueeEnd) {
@@ -784,6 +1083,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     setupSync("dt-ui-pts-slider", "dt-ui-pts-num");
     setupSync("dt-ui-thresh-slider", "dt-ui-thresh-num");
     setupSync("dt-b-op-slider", "dt-b-op-num");
+    setupSync("dt-ui-pose-op-slider", "dt-ui-pose-op-num");
 
     // 单独绑定需要立刻触发绘制的输入框与脚部复选框
     ['dt-b-w', 'dt-b-h', 'dt-b-x', 'dt-b-y'].forEach(id => {
@@ -799,6 +1099,17 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         return { x: (xOnCanvas - v_x) / v_scale, y: (yOnCanvas - v_y) / v_scale, cx: xOnCanvas, cy: yOnCanvas };
     };
 
+    const isPointInRotatedBox = (px, py, box) => {
+        if (!box) return false;
+        const cos = Math.cos(bboxAngle);
+        const sin = Math.sin(bboxAngle);
+        const dx = px - box.cx;
+        const dy = py - box.cy;
+        const lx = dx * cos + dy * sin;
+        const ly = -dx * sin + dy * cos;
+        return Math.abs(lx) <= box.w / 2 && Math.abs(ly) <= box.h / 2;
+    };
+
     // 🔥 右键隐藏快捷功能 (多选域/单点隐身)
     cvs.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -806,7 +1117,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         let changed = false;
 
         // 1. 命中多选边界框
-        if (bbox && wx >= bbox.x && wx <= bbox.x + bbox.w && wy >= bbox.y && wy <= bbox.y + bbox.h) {
+        if (outerBbox && isPointInRotatedBox(wx, wy, outerBbox)) {
             selSet.forEach(id => {
                 const [p, arr, i] = id.split('|');
                 let sc = workingPose.people[p][arr][i * 3 + 2];
@@ -851,7 +1162,8 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         e.preventDefault();
         const { x: wx, y: wy } = getWPos(e);
         const delta = -e.deltaY * 0.001;
-        const new_scale = Math.max(0.05, Math.min(20, v_scale * Math.exp(delta)));
+        // 取消放大的 20 倍限制，保留极小的 0.0001 底线防止除零溢出崩溃
+        const new_scale = Math.max(0.0001, v_scale * Math.exp(delta));
         v_x += wx * (v_scale - new_scale);
         v_y += wy * (v_scale - new_scale);
         v_scale = new_scale;
@@ -861,71 +1173,272 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     cvs.addEventListener("mousedown", (e) => {
         const { x: wx, y: wy } = getWPos(e);
         lastMx = e.clientX; lastMy = e.clientY;
+        startMx = wx; startMy = wy;
         isDragging = true;
+        window._dt_pts_moved = false;
 
         if (e.button === 1 || e.buttons === 4) { dragType = 'pan'; return; }
         if (state.bg.drag_mode) { dragType = 'bg'; return; }
 
-        // 1. 最高优先级：具体点位命中测试 (最小距离竞优，精准命中)
-        let hitId = null;
-        let minHitDist = Infinity;
-        let hitRadius = state.ui.point_size;
+        let hitRadius = Math.max(10, state.ui.point_size) / v_scale;
 
+        // 1. 命中测试：锚点 (Pivot)
+        if (pivot && Math.hypot(pivot.x - wx, pivot.y - wy) <= hitRadius + (5 / v_scale)) {
+            dragType = 'pivot'; return;
+        }
+
+        // 2. 命中测试：8 个控制柄 (Handles)
+        if (outerBbox && innerBbox) {
+            const ob = outerBbox, ib = innerBbox, hr = 12 / v_scale;
+            const w = ob.w, h = ob.h;
+            const iw = ib.w, ih = ib.h;
+
+            const localHandles = [
+                { id: 'nw', lx: -w / 2, ly: -h / 2, lax: iw / 2, lay: ih / 2 },
+                { id: 'n', lx: 0, ly: -h / 2, lax: 0, lay: ih / 2 },
+                { id: 'ne', lx: w / 2, ly: -h / 2, lax: -iw / 2, lay: ih / 2 },
+                { id: 'w', lx: -w / 2, ly: 0, lax: iw / 2, lay: 0 },
+                { id: 'e', lx: w / 2, ly: 0, lax: -iw / 2, lay: 0 },
+                { id: 'sw', lx: -w / 2, ly: h / 2, lax: iw / 2, lay: -ih / 2 },
+                { id: 's', lx: 0, ly: h / 2, lax: 0, lay: -ih / 2 },
+                { id: 'se', lx: w / 2, ly: h / 2, lax: -iw / 2, lay: -ih / 2 }
+            ];
+
+            const cos = Math.cos(bboxAngle);
+            const sin = Math.sin(bboxAngle);
+
+            let clickedH = null;
+            for (let hSpec of localHandles) {
+                const hx = ob.cx + hSpec.lx * cos - hSpec.ly * sin;
+                const hy = ob.cy + hSpec.lx * sin + hSpec.ly * cos;
+                if (Math.abs(wx - hx) <= hr && Math.abs(wy - hy) <= hr) {
+                    clickedH = hSpec;
+                    break;
+                }
+            }
+
+            if (clickedH) {
+                dragType = 'handle'; activeHandle = clickedH.id;
+                const anchorX = ib.cx + clickedH.lax * cos - clickedH.lay * sin;
+                const anchorY = ib.cy + clickedH.lax * sin + clickedH.lay * cos;
+                transformAnchor = { x: anchorX, y: anchorY };
+
+                // 锚点(Pivot)在起始 OBB 局部坐标系中的相对位置
+                const dx = pivot.x - ib.cx;
+                const dy = pivot.y - ib.cy;
+                const lx_pivot = dx * cos + dy * sin;
+                const ly_pivot = -dx * sin + dy * cos;
+                pivotRelativeX = ib.w === 0 ? 0.5 : (lx_pivot + ib.w / 2) / ib.w;
+                pivotRelativeY = ib.h === 0 ? 0.5 : (ly_pivot + ib.h / 2) / ib.h;
+
+                createSnapshot();
+                startBboxAngle = bboxAngle;
+                startBboxCenter = { x: ib.cx, y: ib.cy };
+                startBboxWidth = ib.w;
+                startBboxHeight = ib.h;
+                startPivot = { x: pivot.x, y: pivot.y };
+                startBboxScaleX = bboxScaleX;
+                startBboxScaleY = bboxScaleY;
+                return;
+            }
+
+            // 3. 命中测试：旋转触发区 (四个角点向外 30 像素)
+            const rotDist = 30 / v_scale;
+            const corners = [
+                { lx: -w / 2, ly: -h / 2 },
+                { lx: w / 2, ly: -h / 2 },
+                { lx: -w / 2, ly: h / 2 },
+                { lx: w / 2, ly: h / 2 }
+            ];
+            let hitRotate = false;
+            for (let c of corners) {
+                const cx_world = ob.cx + c.lx * cos - c.ly * sin;
+                const cy_world = ob.cy + c.lx * sin + c.ly * cos;
+                if (Math.hypot(wx - cx_world, wy - cy_world) < rotDist) {
+                    hitRotate = true;
+                    break;
+                }
+            }
+            if (hitRotate) {
+                dragType = 'rotate';
+                startAngle = Math.atan2(wy - pivot.y, wx - pivot.x);
+                createSnapshot();
+                startBboxAngle = bboxAngle;
+                startBboxCenter = { x: ib.cx, y: ib.cy };
+                startBboxWidth = ib.w;
+                startBboxHeight = ib.h;
+                startPivot = { x: pivot.x, y: pivot.y };
+                startBboxScaleX = bboxScaleX;
+                startBboxScaleY = bboxScaleY;
+                return;
+            }
+        }
+
+        // 4. 命中测试：具体点位
+        let hitId = null; let minHitDist = Infinity;
         for (let pIdx = 0; pIdx < workingPose.people.length; pIdx++) {
-            const p = workingPose.people[pIdx];
             for (let arr of ['pose_keypoints_2d', 'foot_keypoints_2d', 'face_keypoints_2d', 'hand_left_keypoints_2d', 'hand_right_keypoints_2d']) {
-                if (!p[arr]) continue;
-                for (let i = 0; i < p[arr].length / 3; i++) {
-                    const score = p[arr][i * 3 + 2], id = `${pIdx}|${arr}|${i}`;
-                    // 可见性 <= 0 彻底免疫物理击中
+                if (!workingPose.people[pIdx][arr]) continue;
+                for (let i = 0; i < workingPose.people[pIdx][arr].length / 3; i++) {
+                    const score = workingPose.people[pIdx][arr][i * 3 + 2], id = `${pIdx}|${arr}|${i}`;
                     if (score <= 0 || (score < state.ui.threshold && !selSet.has(id))) continue;
-
-                    const dist = Math.hypot(p[arr][i * 3] - wx, p[arr][i * 3 + 1] - wy);
-                    if (dist <= hitRadius && dist < minHitDist) {
-                        minHitDist = dist;
-                        hitId = id;
-                    }
+                    const dist = Math.hypot(workingPose.people[pIdx][arr][i * 3] - wx, workingPose.people[pIdx][arr][i * 3 + 1] - wy);
+                    if (dist <= hitRadius && dist < minHitDist) { minHitDist = dist; hitId = id; }
                 }
             }
         }
 
         if (hitId) {
             if (e.shiftKey) {
-                if (selSet.has(hitId)) {
-                    selSet.delete(hitId); // 再次点击已选中的点，取消选中
-                    dragType = null;      // 🔥 核心：剥夺拖拽权限，保持原地不动
-                } else {
-                    selSet.add(hitId);    // 按住 Shift 点未选中的点，追加选中
-                    dragType = 'points';
-                }
+                if (selSet.has(hitId)) { selSet.delete(hitId); dragType = null; }
+                else { selSet.add(hitId); dragType = 'points'; }
             } else {
-                if (!selSet.has(hitId)) {
-                    selSet.clear();       // 没按 Shift 点未选中的点，清空其他单选此点
-                    selSet.add(hitId);
-                }
-                dragType = 'points';      // (若点已选中，则原样进入拖拽逻辑)
+                if (!selSet.has(hitId)) { selSet.clear(); selSet.add(hitId); }
+                dragType = 'points';
             }
-            calcBBox(); window._dt_pts_moved = false; drawCanvas(); renderTree();
+            calcBBox(); drawCanvas(); renderTree(); return;
+        }
+
+        // 5. 命中边界框内部 (整体拖拽)
+        if (outerBbox && isPointInRotatedBox(wx, wy, outerBbox)) {
+            dragType = 'points';
+            startBboxAngle = bboxAngle;
+            startBboxCenter = { x: innerBbox.cx, y: innerBbox.cy };
+            startBboxWidth = innerBbox.w;
+            startBboxHeight = innerBbox.h;
+            startPivot = { x: pivot.x, y: pivot.y };
+            startBboxScaleX = bboxScaleX;
+            startBboxScaleY = bboxScaleY;
             return;
         }
 
-        // 2. 次级优先级：命中多选边界框内的空白处
-        if (bbox && wx >= bbox.x && wx <= bbox.x + bbox.w && wy >= bbox.y && wy <= bbox.y + bbox.h) {
-            dragType = 'points'; window._dt_pts_moved = false; return;
-        }
-
-        // 3. 最低优先级：命中框外纯空白处，开始框选
+        // 6. 空白处框选
         dragType = 'marquee';
         if (!e.shiftKey) selSet.clear();
-        calcBBox();
-        marqueeStart = { x: wx, y: wy }; marqueeEnd = { x: wx, y: wy };
+        calcBBox(); marqueeStart = { x: wx, y: wy }; marqueeEnd = { x: wx, y: wy };
         drawCanvas(); renderTree();
     });
 
+    // 🌟 SVG 数据驱动：纯代码生成四向弯曲旋转箭头光标
+    const getRotCursor = (deg) => `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='transform:rotate(${deg}deg); filter:drop-shadow(0px 0px 2px black);'%3E%3Cpath d='M4.93 4.93A10 10 0 0 1 19.07 19.07 M19.07 19.07A10 10 0 0 1 4.93 4.93 M4.93 4.93L9 5 M4.93 4.93L5 9 M19.07 19.07L15 19 M19.07 19.07L19 15'/%3E%3C/svg>") 12 12, crosshair`;
 
+    // 根据包围盒旋转角度计算八个手柄的最优标准拉伸光标
+    const getResizingCursor = (handleId, angleRad) => {
+        const baseAngles = {
+            'e': 0,
+            'se': 45,
+            's': 90,
+            'sw': 135,
+            'w': 180,
+            'nw': 225,
+            'n': 270,
+            'ne': 315
+        };
+        const baseAngle = baseAngles[handleId] || 0;
+        const angleDeg = (angleRad * 180 / Math.PI) + baseAngle;
+        let normalizedAngle = ((angleDeg % 180) + 180) % 180;
+
+        if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) {
+            return 'nwse-resize';
+        } else if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) {
+            return 'ns-resize';
+        } else if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) {
+            return 'nesw-resize';
+        } else {
+            return 'ew-resize';
+        }
+    };
 
     cvs.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
+        const { x: wx, y: wy } = getWPos(e);
+
+        // 非拖拽悬停状态下的光标智能感应
+        if (!isDragging) {
+            let hoverCursor = 'default';
+            if (state.bg.drag_mode) {
+                hoverCursor = 'move';
+            } else if (outerBbox && innerBbox && pivot) {
+                // 🔥 hr 控制悬停感应半径(现为12)，rotDist 控制旋转感应半径(现为30)
+                const ob = outerBbox, hr = 12 / v_scale, rotDist = 30 / v_scale;
+                const w = ob.w, h = ob.h;
+
+                const localHandles = [
+                    { id: 'nw', lx: -w / 2, ly: -h / 2, cur: getResizingCursor('nw', bboxAngle) },
+                    { id: 'n', lx: 0, ly: -h / 2, cur: getResizingCursor('n', bboxAngle) },
+                    { id: 'ne', lx: w / 2, ly: -h / 2, cur: getResizingCursor('ne', bboxAngle) },
+                    { id: 'w', lx: -w / 2, ly: 0, cur: getResizingCursor('w', bboxAngle) },
+                    { id: 'e', lx: w / 2, ly: 0, cur: getResizingCursor('e', bboxAngle) },
+                    { id: 'sw', lx: -w / 2, ly: h / 2, cur: getResizingCursor('sw', bboxAngle) },
+                    { id: 's', lx: 0, ly: h / 2, cur: getResizingCursor('s', bboxAngle) },
+                    { id: 'se', lx: w / 2, ly: h / 2, cur: getResizingCursor('se', bboxAngle) }
+                ];
+
+                const cos = Math.cos(bboxAngle);
+                const sin = Math.sin(bboxAngle);
+
+                let hitH = false;
+                for (let hSpec of localHandles) {
+                    const hx = ob.cx + hSpec.lx * cos - hSpec.ly * sin;
+                    const hy = ob.cy + hSpec.lx * sin + hSpec.ly * cos;
+                    if (Math.abs(wx - hx) <= hr && Math.abs(wy - hy) <= hr) {
+                        hoverCursor = hSpec.cur;
+                        hitH = true;
+                        break;
+                    }
+                }
+
+                if (!hitH) {
+                    if (Math.hypot(pivot.x - wx, pivot.y - wy) <= hr + (5 / v_scale)) {
+                        hoverCursor = 'move';
+                    } else {
+                        // 对 4 个旋转角点进行旋转范围感应
+                        const corners = [
+                            { lx: -w / 2, ly: -h / 2, deg: -45 },
+                            { lx: w / 2, ly: -h / 2, deg: 45 },
+                            { lx: -w / 2, ly: h / 2, deg: -135 },
+                            { lx: w / 2, ly: h / 2, deg: 135 }
+                        ];
+                        let hitRot = false;
+                        for (let c of corners) {
+                            const cx_world = ob.cx + c.lx * cos - c.ly * sin;
+                            const cy_world = ob.cy + c.lx * sin + c.ly * cos;
+                            if (Math.hypot(wx - cx_world, wy - cy_world) < rotDist) {
+                                const totalDeg = Math.round(c.deg + bboxAngle * (180 / Math.PI));
+                                hoverCursor = getRotCursor(totalDeg);
+                                hitRot = true;
+                                break;
+                            }
+                        }
+
+                        if (!hitRot) {
+                            if (isPointInRotatedBox(wx, wy, ob)) {
+                                hoverCursor = 'grab';
+                            }
+                        }
+                    }
+                }
+            } else {
+                let hitRadius = Math.max(10, state.ui.point_size) / v_scale;
+                let hitPt = false;
+                for (let pIdx = 0; pIdx < workingPose.people.length; pIdx++) {
+                    const p = workingPose.people[pIdx];
+                    for (let arr of ['pose_keypoints_2d', 'foot_keypoints_2d', 'face_keypoints_2d', 'hand_left_keypoints_2d', 'hand_right_keypoints_2d']) {
+                        if (!p[arr]) continue;
+                        for (let i = 0; i < p[arr].length / 3; i++) {
+                            const score = p[arr][i * 3 + 2];
+                            if (score <= 0 || (score < state.ui.threshold && !selSet.has(`${pIdx}|${arr}|${i}`))) continue;
+                            if (Math.hypot(p[arr][i * 3] - wx, p[arr][i * 3 + 1] - wy) <= hitRadius) { hitPt = true; break; }
+                        }
+                        if (hitPt) break;
+                    }
+                    if (hitPt) break;
+                }
+                if (hitPt) hoverCursor = 'pointer';
+            }
+            cvs.style.cursor = hoverCursor;
+            return; // 非拖拽状态到此为止
+        }
+
         const rect = cvs.getBoundingClientRect();
         const dxCanvas = (e.clientX - lastMx);
         const dyCanvas = (e.clientY - lastMy);
@@ -933,13 +1446,136 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
 
         if (dragType === 'pan') {
             v_x += dxCanvas; v_y += dyCanvas; drawCanvas();
+            cvs.style.cursor = 'grabbing';
         } else if (dragType === 'bg') {
             state.bg.x += dxCanvas / v_scale; state.bg.y += dyCanvas / v_scale;
             document.getElementById("dt-b-x").value = Math.round(state.bg.x);
             document.getElementById("dt-b-y").value = Math.round(state.bg.y);
             updateStateCallback(); drawCanvas();
+            cvs.style.cursor = 'move';
+        } else if (dragType === 'pivot') {
+            window._dt_pts_moved = true;
+            pivot.x = wx; pivot.y = wy;
+            // Shift 吸附逻辑
+            if (e.shiftKey && innerBbox) {
+                const ib = innerBbox;
+                const iw = ib.w, ih = ib.h;
+                const localTargets = [
+                    { lx: -iw / 2, ly: -ih / 2 }, { lx: iw / 2, ly: -ih / 2 },
+                    { lx: -iw / 2, ly: ih / 2 }, { lx: iw / 2, ly: ih / 2 },
+                    { lx: 0, ly: -ih / 2 }, { lx: 0, ly: ih / 2 },
+                    { lx: -iw / 2, ly: 0 }, { lx: iw / 2, ly: 0 },
+                    { lx: 0, ly: 0 }
+                ];
+                const cos = Math.cos(bboxAngle);
+                const sin = Math.sin(bboxAngle);
+                let snapTargets = localTargets.map(t => ({
+                    x: ib.cx + t.lx * cos - t.ly * sin,
+                    y: ib.cy + t.lx * sin + t.ly * cos
+                }));
+                workingPose.people.forEach(p => {
+                    ['pose_keypoints_2d', 'foot_keypoints_2d', 'face_keypoints_2d', 'hand_left_keypoints_2d', 'hand_right_keypoints_2d'].forEach(arr => {
+                        if (!p[arr]) return;
+                        for (let i = 0; i < p[arr].length / 3; i++) { if (p[arr][i * 3 + 2] > 0) snapTargets.push({ x: p[arr][i * 3], y: p[arr][i * 3 + 1] }); }
+                    });
+                });
+                let closest = null, minDist = 20 / v_scale;
+                snapTargets.forEach(t => { const d = Math.hypot(t.x - wx, t.y - wy); if (d < minDist) { minDist = d; closest = t; } });
+                if (closest) { pivot.x = closest.x; pivot.y = closest.y; }
+            }
+            updateFloatPanelUI(); drawCanvas();
+            cvs.style.cursor = 'move';
+        } else if (dragType === 'handle') {
+            window._dt_pts_moved = true;
+            let sx = 1, sy = 1;
+
+            const cos0 = Math.cos(startBboxAngle);
+            const sin0 = Math.sin(startBboxAngle);
+
+            const dx_start = startMx - transformAnchor.x;
+            const dy_start = startMy - transformAnchor.y;
+            const w0 = dx_start * cos0 + dy_start * sin0;
+            const h0 = -dx_start * sin0 + dy_start * cos0;
+
+            const dx_curr = wx - transformAnchor.x;
+            const dy_curr = wy - transformAnchor.y;
+            const w_curr = dx_curr * cos0 + dy_curr * sin0;
+            const h_curr = -dx_curr * sin0 + dy_curr * cos0;
+
+            if (activeHandle.includes('w') || activeHandle.includes('e')) {
+                sx = (w0 === 0) ? 1 : w_curr / w0;
+                sx = Math.max(0.001, sx);
+            }
+            if (activeHandle.includes('n') || activeHandle.includes('s')) {
+                sy = (h0 === 0) ? 1 : h_curr / h0;
+                sy = Math.max(0.001, sy);
+            }
+
+            // 默认保持比例，Shift 开启自由拉伸
+            if (!e.shiftKey && activeHandle.length === 2) {
+                const uniformScale = (sx + sy) / 2;
+                sx = Math.max(0.001, uniformScale);
+                sy = Math.max(0.001, uniformScale);
+            }
+            applyTransform(transformSnapshot, sx, sy, 0, transformAnchor);
+            bboxScaleX = startBboxScaleX * sx;
+            bboxScaleY = startBboxScaleY * sy;
+            document.getElementById("dt-fp-sx").value = bboxScaleX.toFixed(3);
+            document.getElementById("dt-fp-sy").value = bboxScaleY.toFixed(3);
+
+            // 解析地更新 innerBbox 和 outerBbox:
+            innerBbox.w = Math.abs(startBboxWidth * sx);
+            innerBbox.h = Math.abs(startBboxHeight * sy);
+            outerBbox.w = innerBbox.w + 30;
+            outerBbox.h = innerBbox.h + 30;
+
+            // 中心点计算:
+            let lax = 0, lay = 0;
+            const iw = startBboxWidth, ih = startBboxHeight;
+            if (activeHandle === 'nw') { lax = iw / 2; lay = ih / 2; }
+            else if (activeHandle === 'n') { lax = 0; lay = ih / 2; }
+            else if (activeHandle === 'ne') { lax = -iw / 2; lay = ih / 2; }
+            else if (activeHandle === 'w') { lax = iw / 2; lay = 0; }
+            else if (activeHandle === 'e') { lax = -iw / 2; lay = 0; }
+            else if (activeHandle === 'sw') { lax = iw / 2; lay = -ih / 2; }
+            else if (activeHandle === 's') { lax = 0; lay = -ih / 2; }
+            else if (activeHandle === 'se') { lax = -iw / 2; lay = -ih / 2; }
+
+            const lc_new_x = -lax * sx;
+            const lc_new_y = -lay * sy;
+            const offset_x = lax + lc_new_x;
+            const offset_y = lay + lc_new_y;
+
+            innerBbox.cx = startBboxCenter.x + offset_x * cos0 - offset_y * sin0;
+            innerBbox.cy = startBboxCenter.y + offset_x * sin0 + offset_y * cos0;
+            outerBbox.cx = innerBbox.cx;
+            outerBbox.cy = innerBbox.cy;
+
+            calcBBox(); drawCanvas();
+            cvs.style.cursor = getResizingCursor(activeHandle, bboxAngle);
+        } else if (dragType === 'rotate') {
+            window._dt_pts_moved = true;
+            const currAngle = Math.atan2(wy - pivot.y, wx - pivot.x);
+            const deltaAngle = currAngle - startAngle;
+            applyTransform(transformSnapshot, 1, 1, deltaAngle * (180 / Math.PI), pivot);
+
+            bboxAngle = startBboxAngle + deltaAngle;
+            document.getElementById("dt-fp-rot").value = (bboxAngle * (180 / Math.PI)).toFixed(3);
+
+            // 解析地更新:
+            bboxAngle = startBboxAngle + deltaAngle;
+            const dx = startBboxCenter.x - pivot.x;
+            const dy = startBboxCenter.y - pivot.y;
+            const cos_rot = Math.cos(deltaAngle);
+            const sin_rot = Math.sin(deltaAngle);
+            innerBbox.cx = pivot.x + dx * cos_rot - dy * sin_rot;
+            innerBbox.cy = pivot.y + dx * sin_rot + dy * cos_rot;
+            outerBbox.cx = innerBbox.cx;
+            outerBbox.cy = innerBbox.cy;
+
+            calcBBox(); drawCanvas();
         } else if (dragType === 'points') {
-            window._dt_pts_moved = true; // 🔥 标记发生了真实的物理拖拽
+            window._dt_pts_moved = true;
             const dxWorld = dxCanvas / v_scale, dyWorld = dyCanvas / v_scale;
             selSet.forEach(id => {
                 if (lockSet.has(id)) return;
@@ -951,10 +1587,15 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 if (inX) inX.value = Math.round(workingPose.people[p][arr][i * 3]);
                 if (inY) inY.value = Math.round(workingPose.people[p][arr][i * 3 + 1]);
             });
+            // 拖拽时保证锚点相对位置绝对同步
+            if (pivot) { pivot.x += dxWorld; pivot.y += dyWorld; }
+            if (innerBbox) { innerBbox.cx += dxWorld; innerBbox.cy += dyWorld; }
+            if (outerBbox) { outerBbox.cx += dxWorld; outerBbox.cy += dyWorld; }
             calcBBox(); drawCanvas();
+            cvs.style.cursor = 'grabbing';
         } else if (dragType === 'marquee') {
-            const { x: wx, y: wy } = getWPos(e);
             marqueeEnd = { x: wx, y: wy }; drawCanvas();
+            cvs.style.cursor = 'crosshair';
         }
     });
 
@@ -962,8 +1603,8 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         if (!isDragging) return;
         isDragging = false;
 
-        if (dragType === 'points' && window._dt_pts_moved) {
-            saveHistory(); // 🔥 记录拖拽终点历史
+        if (window._dt_pts_moved) {
+            saveHistory();
             window._dt_pts_moved = false;
         } else if (dragType === 'marquee') {
             const minX = Math.min(marqueeStart.x, marqueeEnd.x), maxX = Math.max(marqueeStart.x, marqueeEnd.x);
@@ -985,6 +1626,432 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         }
         dragType = null;
     });
+
+    // 绑定浮动面板数值输入确认事件
+    ['dt-fp-px', 'dt-fp-py', 'dt-fp-sx', 'dt-fp-sy', 'dt-fp-rot', 'dt-fp-ox', 'dt-fp-oy'].forEach(id => {
+        const inp = document.getElementById(id);
+        inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inp.blur(); } });
+        inp.addEventListener("change", (e) => {
+            if (selSet.size <= 1) return;
+
+            let deltaOx = 0;
+            let deltaOy = 0;
+            let rel_sx = 1.0;
+            let rel_sy = 1.0;
+            let rel_rot = 0.0;
+            let pivotChanged = false;
+
+            const px = parseFloat(document.getElementById("dt-fp-px").value) || (pivot ? pivot.x : 0);
+            const py = parseFloat(document.getElementById("dt-fp-py").value) || (pivot ? pivot.y : 0);
+            const sx = parseFloat(document.getElementById("dt-fp-sx").value) || 1.0;
+            const sy = parseFloat(document.getElementById("dt-fp-sy").value) || 1.0;
+            const rot = parseFloat(document.getElementById("dt-fp-rot").value) || 0;
+
+            if (id === 'dt-fp-ox' || id === 'dt-fp-oy') {
+                const targetOx = parseFloat(document.getElementById("dt-fp-ox").value) || 0;
+                const targetOy = parseFloat(document.getElementById("dt-fp-oy").value) || 0;
+                const currentOx = innerBbox && initialBboxCenter ? innerBbox.cx - initialBboxCenter.x : 0.0;
+                const currentOy = innerBbox && initialBboxCenter ? innerBbox.cy - initialBboxCenter.y : 0.0;
+                deltaOx = targetOx - currentOx;
+                deltaOy = targetOy - currentOy;
+            }
+
+            if (id === 'dt-fp-sx' || id === 'dt-fp-sy') {
+                // 如果开启了同步缩放，且当前修改的是缩放 X 或 Y 框
+                const syncScale = document.getElementById("dt-fp-sync-scale").checked;
+                if (syncScale) {
+                    if (id === 'dt-fp-sx') {
+                        document.getElementById("dt-fp-sy").value = sx.toFixed(3);
+                    } else if (id === 'dt-fp-sy') {
+                        document.getElementById("dt-fp-sx").value = sy.toFixed(3);
+                    }
+                }
+                const finalSx = parseFloat(document.getElementById("dt-fp-sx").value) || 1.0;
+                const finalSy = parseFloat(document.getElementById("dt-fp-sy").value) || 1.0;
+                rel_sx = bboxScaleX === 0 ? 1.0 : finalSx / bboxScaleX;
+                rel_sy = bboxScaleY === 0 ? 1.0 : finalSy / bboxScaleY;
+            }
+
+            if (id === 'dt-fp-rot') {
+                rel_rot = rot - (bboxAngle * (180 / Math.PI));
+            }
+
+            if (id === 'dt-fp-px' || id === 'dt-fp-py') {
+                pivotChanged = pivot && (pivot.x !== px || pivot.y !== py);
+            }
+
+            if (pivot) { pivot.x = px; pivot.y = py; }
+
+            let hasTranslated = false;
+            if (deltaOx !== 0 || deltaOy !== 0) {
+                selSet.forEach(id => {
+                    if (lockSet.has(id)) return;
+                    const [p, arr, i] = id.split('|');
+                    workingPose.people[p][arr][i * 3] += deltaOx;
+                    workingPose.people[p][arr][i * 3 + 1] += deltaOy;
+                    const inX = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="0"]`);
+                    const inY = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="1"]`);
+                    if (inX) inX.value = Math.round(workingPose.people[p][arr][i * 3]);
+                    if (inY) inY.value = Math.round(workingPose.people[p][arr][i * 3 + 1]);
+                });
+                if (pivot) { pivot.x += deltaOx; pivot.y += deltaOy; }
+                if (innerBbox) { innerBbox.cx += deltaOx; innerBbox.cy += deltaOy; }
+                if (outerBbox) { outerBbox.cx += deltaOx; outerBbox.cy += deltaOy; }
+                hasTranslated = true;
+
+                // 偏移后，同步更新 DOM 中锚点输入框的值，避免后面误判 pivotChanged
+                if (pivot) {
+                    document.getElementById("dt-fp-px").value = parseFloat(pivot.x.toFixed(3));
+                    document.getElementById("dt-fp-py").value = parseFloat(pivot.y.toFixed(3));
+                }
+            }
+
+            if (rel_sx !== 1.0 || rel_sy !== 1.0 || rel_rot !== 0) {
+                // 保存初始包围盒参数，使 applyTransform 与 包围盒更新使用相同的基准
+                startBboxAngle = bboxAngle;
+                startBboxCenter = { x: innerBbox.cx, y: innerBbox.cy };
+                startBboxWidth = innerBbox.w;
+                startBboxHeight = innerBbox.h;
+                startPivot = { x: pivot.x, y: pivot.y };
+
+                createSnapshot();
+                applyTransform(transformSnapshot, rel_sx, rel_sy, rel_rot, pivot);
+
+                // 1. 更新包围盒尺寸
+                innerBbox.w = Math.abs(startBboxWidth * rel_sx);
+                innerBbox.h = Math.abs(startBboxHeight * rel_sy);
+                outerBbox.w = innerBbox.w + 30;
+                outerBbox.h = innerBbox.h + 30;
+
+                // 2. 更新包围盒中心点 cx, cy (绕 origin/pivot 的变换数学模型)
+                const dx = startBboxCenter.x - pivot.x;
+                const dy = startBboxCenter.y - pivot.y;
+                const cos0 = Math.cos(startBboxAngle);
+                const sin0 = Math.sin(startBboxAngle);
+                // 投影到起始局部坐标系
+                const lx = dx * cos0 + dy * sin0;
+                const ly = -dx * sin0 + dy * cos0;
+                // 在局部坐标系下进行缩放
+                const lx_scaled = lx * rel_sx;
+                const ly_scaled = ly * rel_sy;
+                // 转回世界坐标
+                const nx = pivot.x + lx_scaled * cos0 - ly_scaled * sin0;
+                const ny = pivot.y + lx_scaled * sin0 + ly_scaled * cos0;
+
+                // 进行旋转
+                const rad = rel_rot * (Math.PI / 180);
+                const cos_rot = Math.cos(rad);
+                const sin_rot = Math.sin(rad);
+                innerBbox.cx = pivot.x + (nx - pivot.x) * cos_rot - (ny - pivot.y) * sin_rot;
+                innerBbox.cy = pivot.y + (nx - pivot.x) * sin_rot + (ny - pivot.y) * cos_rot;
+                outerBbox.cx = innerBbox.cx;
+                outerBbox.cy = innerBbox.cy;
+
+                // 3. 更新旋转角
+                bboxAngle = startBboxAngle + rad;
+                bboxScaleX = sx;
+                bboxScaleY = sy;
+
+                saveHistory();
+                calcBBox(true); drawCanvas(); renderTree();
+            } else {
+                if (pivotChanged || hasTranslated) {
+                    saveHistory();
+                }
+                calcBBox(true); drawCanvas();
+            }
+        });
+    });
+
+    // 绑定多选变换控制面板的“重设”与“归位”按钮
+    const resetBtn = document.getElementById("dt-fp-btn-reset");
+    if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+            if (selSet.size <= 1) return;
+            saveHistory();
+            lastSelKey = ""; // 强制标记为全新选择
+            calcBBox(false); // 重新计算包围盒（不保留旧的旋转、缩放、偏移等状态，全部规正）
+            saveHistory();
+            drawCanvas();
+            renderTree();
+        });
+    }
+
+    const revertBtn = document.getElementById("dt-fp-btn-revert");
+    if (revertBtn) {
+        revertBtn.addEventListener("click", () => {
+            if (selSet.size <= 1 || !selectionStartPointsSnapshot) return;
+            saveHistory();
+
+            // 恢复所有被选中点到初始选中的快照点位
+            let hasReverted = false;
+            for (const id in selectionStartPointsSnapshot) {
+                if (selSet.has(id)) {
+                    const [p, arr, i] = id.split('|');
+                    const startPt = selectionStartPointsSnapshot[id];
+                    workingPose.people[p][arr][i * 3] = startPt.x;
+                    workingPose.people[p][arr][i * 3 + 1] = startPt.y;
+
+                    const inX = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="0"]`);
+                    const inY = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="1"]`);
+                    if (inX) inX.value = Math.round(startPt.x);
+                    if (inY) inY.value = Math.round(startPt.y);
+                    hasReverted = true;
+                }
+            }
+
+            if (hasReverted) {
+                lastSelKey = ""; // 强制标记为全新选择以重新初始化包围盒及相关变换基准
+                calcBBox(false);
+                saveHistory();
+                drawCanvas();
+                renderTree();
+            }
+        });
+    }
+
+    // 绑定多选控制面板数值输入框的“拖拽滑块”功能
+    const bindDragToSlide = (id) => {
+        const inp = document.getElementById(id);
+        if (!inp) return;
+
+        inp.title = T("按住并左右拖拽可快速调整数值（左小右大）");
+        inp.style.cursor = "ew-resize";
+
+        inp.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return; // 仅限鼠标左键
+            if (document.activeElement === inp) {
+                // 如果当前输入框已经处于获取焦点（输入模式）状态，则不要启动拖拽滑动，让用户能正常拖选/修改数字
+                return;
+            }
+
+            const startX = e.clientX;
+            const startVal = parseFloat(inp.value) || (id.includes('sx') || id.includes('sy') ? 1.0 : 0.0);
+            let hasMoved = false;
+
+            // 快照记录开始拖拽时所有相关的面板数值，作为变化计算基准
+            const startOx = parseFloat(document.getElementById("dt-fp-ox").value) || 0;
+            const startOy = parseFloat(document.getElementById("dt-fp-oy").value) || 0;
+            const startSx = parseFloat(document.getElementById("dt-fp-sx").value) || 1.0;
+            const startSy = parseFloat(document.getElementById("dt-fp-sy").value) || 1.0;
+            const startRot = parseFloat(document.getElementById("dt-fp-rot").value) || 0;
+
+            // 对关键点进行绝对位置快照及变换参数重置，防累计误差
+            createSnapshot();
+            startBboxAngle = bboxAngle;
+            startBboxCenter = innerBbox ? { x: innerBbox.cx, y: innerBbox.cy } : null;
+            startBboxWidth = innerBbox ? innerBbox.w : 0;
+            startBboxHeight = innerBbox ? innerBbox.h : 0;
+            startPivot = pivot ? { x: pivot.x, y: pivot.y } : null;
+            startBboxScaleX = bboxScaleX;
+            startBboxScaleY = bboxScaleY;
+
+            const onMouseMove = (ev) => {
+                const deltaX = ev.clientX - startX;
+                if (!hasMoved && Math.abs(deltaX) > 3) {
+                    hasMoved = true;
+                    inp.blur(); // 模糊焦点防止触发原生输入选中/文字操作
+                    document.body.style.cursor = 'ew-resize';
+                    inp.style.cursor = 'ew-resize';
+                }
+
+                if (hasMoved) {
+                    ev.preventDefault();
+
+                    let step = 0.5; // 位移/旋转步长
+                    if (id === 'dt-fp-sx' || id === 'dt-fp-sy') {
+                        step = 0.005; // 缩放步长更小、更细腻
+                    }
+
+                    // 左小右大：向左拖拽（deltaX为负）时数值减少，向右拖拽（deltaX为正）时数值增加
+                    let targetValue = startVal + deltaX * step;
+                    if (id === 'dt-fp-sx' || id === 'dt-fp-sy') {
+                        targetValue = Math.max(0.001, targetValue); // 缩放值防归零或为负
+                    }
+
+                    inp.value = targetValue.toFixed(3);
+
+                    const syncScale = document.getElementById("dt-fp-sync-scale").checked;
+                    if (syncScale) {
+                        if (id === 'dt-fp-sx') {
+                            document.getElementById("dt-fp-sy").value = targetValue.toFixed(3);
+                        } else if (id === 'dt-fp-sy') {
+                            document.getElementById("dt-fp-sx").value = targetValue.toFixed(3);
+                        }
+                    }
+
+                    // 初始化本次运动增量
+                    let deltaOx = 0;
+                    let deltaOy = 0;
+                    let rel_sx = 1.0;
+                    let rel_sy = 1.0;
+                    let rel_rot = 0.0;
+
+                    if (id === 'dt-fp-ox' || id === 'dt-fp-oy') {
+                        const targetOx = parseFloat(document.getElementById("dt-fp-ox").value) || 0;
+                        const targetOy = parseFloat(document.getElementById("dt-fp-oy").value) || 0;
+                        deltaOx = targetOx - startOx;
+                        deltaOy = targetOy - startOy;
+                    }
+
+                    if (id === 'dt-fp-sx' || id === 'dt-fp-sy') {
+                        const targetSx = parseFloat(document.getElementById("dt-fp-sx").value) || 1.0;
+                        const targetSy = parseFloat(document.getElementById("dt-fp-sy").value) || 1.0;
+                        rel_sx = startBboxScaleX === 0 ? 1.0 : targetSx / startBboxScaleX;
+                        rel_sy = startBboxScaleY === 0 ? 1.0 : targetSy / startBboxScaleY;
+                    }
+
+                    if (id === 'dt-fp-rot') {
+                        const targetRot = parseFloat(document.getElementById("dt-fp-rot").value) || 0;
+                        rel_rot = targetRot - (startBboxAngle * (180 / Math.PI));
+                    }
+
+                    // 1. 进行缩放和旋转
+                    applyTransform(transformSnapshot, rel_sx, rel_sy, rel_rot, startPivot);
+
+                    // 2. 叠加位移偏移量
+                    if (deltaOx !== 0 || deltaOy !== 0) {
+                        selSet.forEach(id => {
+                            if (lockSet.has(id)) return;
+                            const [p, arr, i] = id.split('|');
+                            workingPose.people[p][arr][i * 3] += deltaOx;
+                            workingPose.people[p][arr][i * 3 + 1] += deltaOy;
+                            const inX = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="0"]`);
+                            const inY = document.querySelector(`.pt-inp[data-id="${p}|${arr}|${i}"][data-comp="1"]`);
+                            if (inX) inX.value = Math.round(workingPose.people[p][arr][i * 3]);
+                            if (inY) inY.value = Math.round(workingPose.people[p][arr][i * 3 + 1]);
+                        });
+                    }
+
+                    // 3. 更新辅助锚点
+                    if (startPivot) {
+                        pivot.x = startPivot.x + deltaOx;
+                        pivot.y = startPivot.y + deltaOy;
+                        document.getElementById("dt-fp-px").value = parseFloat(pivot.x.toFixed(3));
+                        document.getElementById("dt-fp-py").value = parseFloat(pivot.y.toFixed(3));
+                    }
+
+                    // 4. 更新有向包围盒 (OBB) 中心及长宽
+                    if (startBboxCenter) {
+                        const dx = startBboxCenter.x - startPivot.x;
+                        const dy = startBboxCenter.y - startPivot.y;
+                        const cos0 = Math.cos(startBboxAngle);
+                        const sin0 = Math.sin(startBboxAngle);
+                        const lx = dx * cos0 + dy * sin0;
+                        const ly = -dx * sin0 + dy * cos0;
+                        const lx_scaled = lx * rel_sx;
+                        const ly_scaled = ly * rel_sy;
+                        const nx = startPivot.x + lx_scaled * cos0 - ly_scaled * sin0;
+                        const ny = startPivot.y + lx_scaled * sin0 + ly_scaled * cos0;
+
+                        const rad = rel_rot * (Math.PI / 180);
+                        const cos_rot = Math.cos(rad);
+                        const sin_rot = Math.sin(rad);
+                        const rotatedCx = startPivot.x + (nx - startPivot.x) * cos_rot - (ny - startPivot.y) * sin_rot;
+                        const rotatedCy = startPivot.y + (nx - startPivot.x) * sin_rot + (ny - startPivot.y) * cos_rot;
+
+                        innerBbox.cx = rotatedCx + deltaOx;
+                        innerBbox.cy = rotatedCy + deltaOy;
+                        outerBbox.cx = innerBbox.cx;
+                        outerBbox.cy = innerBbox.cy;
+                    }
+
+                    innerBbox.w = Math.abs(startBboxWidth * rel_sx);
+                    innerBbox.h = Math.abs(startBboxHeight * rel_sy);
+                    outerBbox.w = innerBbox.w + 30;
+                    outerBbox.h = innerBbox.h + 30;
+                    bboxAngle = startBboxAngle + (rel_rot * (Math.PI / 180));
+                    bboxScaleX = parseFloat(document.getElementById("dt-fp-sx").value) || 1.0;
+                    bboxScaleY = parseFloat(document.getElementById("dt-fp-sy").value) || 1.0;
+
+                    calcBBox(true);
+                    drawCanvas();
+                }
+            };
+
+            const onMouseUp = () => {
+                window.removeEventListener("mousemove", onMouseMove);
+                window.removeEventListener("mouseup", onMouseUp);
+                if (hasMoved) {
+                    document.body.style.cursor = '';
+                    inp.style.cursor = 'ew-resize';
+                    saveHistory();
+                    calcBBox(true);
+                    drawCanvas();
+                    renderTree();
+                }
+            };
+
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+        });
+    };
+
+    // 为需要拖拽调整的五个输入框绑定事件
+    ['dt-fp-ox', 'dt-fp-oy', 'dt-fp-sx', 'dt-fp-sy', 'dt-fp-rot'].forEach(bindDragToSlide);
+
+    // 绑定多选控制面板的全局“拖拽移动”功能
+    const panel = document.getElementById("dt-float-panel");
+    if (panel) {
+        panel.addEventListener("mousedown", (e) => {
+            // 点击的是输入框、选择框、按钮等交互元件，或者光标是 pointer，则不执行面板拖动
+            const tagName = e.target.tagName.toLowerCase();
+            if (
+                tagName === "input" ||
+                tagName === "button" ||
+                tagName === "select" ||
+                e.target.closest("button") ||
+                window.getComputedStyle(e.target).cursor === "pointer"
+            ) {
+                return;
+            }
+
+            e.preventDefault(); // 阻止默认的文本选择高亮行为
+
+            const wrapper = document.getElementById("dt-canvas-wrapper");
+            if (!wrapper) return;
+
+            const startPanelX = panel.offsetLeft;
+            const startPanelY = panel.offsetTop;
+            const startMouseX = e.clientX;
+            const startMouseY = e.clientY;
+
+            const onPanelMouseMove = (ev) => {
+                const dx = ev.clientX - startMouseX;
+                const dy = ev.clientY - startMouseY;
+                let targetLeft = startPanelX + dx;
+                let targetTop = startPanelY + dy;
+
+                // 边界限制：卡住画布容器 boundaries
+                const maxLeft = Math.max(0, wrapper.clientWidth - panel.offsetWidth);
+                const maxTop = Math.max(0, wrapper.clientHeight - panel.offsetHeight);
+                targetLeft = Math.max(0, Math.min(targetLeft, maxLeft));
+                targetTop = Math.max(0, Math.min(targetTop, maxTop));
+
+                panel.style.right = "auto";
+                panel.style.left = targetLeft + "px";
+                panel.style.top = targetTop + "px";
+            };
+
+            const onPanelMouseUp = () => {
+                window.removeEventListener("mousemove", onPanelMouseMove);
+                window.removeEventListener("mouseup", onPanelMouseUp);
+
+                // 持久化记录面板位置，确保再次多选或重开编辑器能恢复
+                state.ui = state.ui || {};
+                state.ui.float_panel_pos = {
+                    left: parseInt(panel.style.left),
+                    top: parseInt(panel.style.top)
+                };
+                if (updateStateCallback) {
+                    updateStateCallback();
+                }
+            };
+
+            window.addEventListener("mousemove", onPanelMouseMove);
+            window.addEventListener("mouseup", onPanelMouseUp);
+        });
+    }
 
     // ================= 🧍 程序化骨架生成算法 (Procedural Skeleton Generator) =================
     document.getElementById("dt-t-add").onclick = () => {

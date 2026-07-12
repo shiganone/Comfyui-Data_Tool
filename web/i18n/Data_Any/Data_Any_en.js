@@ -16,7 +16,7 @@ Object.assign(window.DataTool_I18N.EN, {
     <b>Outputs</b><br>data: Extracted batch.<br>
     <b>Parameters</b><br>
     • <b>Start Index</b>: The starting index of the portion to extract. Supports negative numbers (e.g., -1 is the last frame).<br>
-    • <b>Length</b>: The length of the batch to extract.<br>
+    • <b>Length</b>: The length of the batch to extract. Set to 0 to extract to the end, or from the start to the start index if reverse cut is enabled.<br>
     • <b>Reverse Cut</b>: When enabled, extracts backward from the selected index for the specified length (e.g., start index 5, length 3, reverse cuts 3, 4, 5).
 </div>`
     },

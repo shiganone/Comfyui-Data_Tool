@@ -1,5 +1,5 @@
 ﻿import torch
-from ..utils import any_type, validate_compatibility, parse_color
+from ..utils import any_type, validate_compatibility, parse_color, calculate_slice_indices
 import re
 import math
 
@@ -13,7 +13,7 @@ class TensorExtractor:
                 "data": (any_type, {"tooltip": "连入任意类型的数据 (图片/Mask/Latent)"}),
                 "slice_dim": ("INT", {"default": 0, "min": 0, "max": 10, "step": 1, "tooltip": "切片维度"}),
                 "start_index": ("INT", {"default": 0, "min": -100000, "max": 100000, "step": 1, "tooltip": "起始索引 (支持负数，-1表示最后一个)"}),
-                "length": ("INT", {"default": 1, "min": 1, "max": 100000, "step": 1, "tooltip": "提取长度"}),
+                "length": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1, "tooltip": "提取长度 (0代表从起始索引提取至末尾/开头)"}),
                 "reverse_direction": ("BOOLEAN", {"default": False, "tooltip": "True为向左提取"}),
                 "split_to_list": ("BOOLEAN", {"default": False, "tooltip": "True为输出张量列表，False为输出单一整块张量"}),
             }
@@ -38,12 +38,7 @@ class TensorExtractor:
         total_len = tensor.shape[dim]
         
         # 3. 负数索引与方向处理
-        start = start_index if start_index >= 0 else total_len + start_index
-        if reverse_direction:
-            start = start - length + 1
-            
-        start = max(0, start)
-        end = min(total_len, start + length)
+        start, end = calculate_slice_indices(total_len, start_index, length, reverse_direction)
         
         # 4. 动态全维切片
         indices = [slice(None)] * tensor.ndim

@@ -11,7 +11,7 @@ class BatchDataExtractor:
             "required": {
                 "data": (any_type, {"tooltip": "连入任意类型的数据 (图片/Mask/NLF/DWPose)"}),
                 "start_index": ("INT", {"default": 0, "min": -100000, "max": 100000, "step": 1, "tooltip": "提取的起始索引 (支持负数)"}),
-                "length": ("INT", {"default": 1, "min": 1, "max": 100000, "step": 1, "tooltip": "提取的长度/帧数"}),
+                "length": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1, "tooltip": "提取的长度 (0代表从起始索引提取至末尾/开头)"}),
                 "reverse_direction": ("BOOLEAN", {"default": False, "tooltip": "True为向左(前)提取"}),
             }
         }

@@ -252,7 +252,7 @@ Object.assign(window.DataTool_I18N.EN, {
     <hr style="border-color: #444;">
     <h3 style="color: #4af;">🎮 Editor Shortcuts & Controls</h3>
     • <b>View Control</b>: Use the mouse wheel to zoom, and drag with the middle mouse button to pan the canvas.<br>
-    • <b>Select Keypoints</b>: Left-click to select a single point, drag in any empty space to box-select, or hold <b>Shift</b> while clicking for multi-selection.<br>
+    • <b>Select Keypoints</b>: Left-click to select a single point, drag in any empty space to box-select, or hold <b>Shift</b> while clicking for multi-selection. Under multi-selection, a bounding box is drawn; drag the bounding box handles to freely scale or rotate. Drag the anchor to adjust the center of scaling/rotation, and hold <b>Shift</b> while dragging the anchor to snap.<br>
     • <b>Move Keypoints</b>: Once target points are selected, hold the left mouse button and drag to move them.<br>
     • <b>Hide Keypoints</b>: Click <b>[Right-Click]</b> on a keypoint or selected bounding box to quickly toggle visibility.<br>
     • <b>History Actions</b>: Supports <b>Ctrl+Z</b> (Undo) and <b>Ctrl+Y</b> (Redo).

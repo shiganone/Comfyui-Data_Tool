@@ -1302,6 +1302,7 @@ class UniversalPoseEditor:
             },
             "optional": {
                 "background_image": ("IMAGE", {"tooltip": "背景图片"}),
+                "keypoint": ("POSE_KEYPOINT", {"tooltip": "输入关键点数据，可点击“更新关键点”按钮将其覆盖到文本框中"}),
             }
         }
         
@@ -1311,7 +1312,7 @@ class UniversalPoseEditor:
     FUNCTION = "parse_pose"
     CATEGORY = "Data_Tool/Data_Pose"
 
-    def parse_pose(self, pose_json, background_image=None):
+    def parse_pose(self, pose_json, background_image=None, keypoint=None):
         import json
         import os
         import uuid
@@ -1361,8 +1362,25 @@ class UniversalPoseEditor:
             file_path = os.path.join(temp_dir, filename)
             pil_img.save(file_path)
             
-            # 按照 ComfyUI PreviewImage 的标准格式发送给前端
-            ui_update = {"background_image": [{"filename": filename, "subfolder": "", "type": "temp"}]}
+            # 按照 ComfyUI PreviewImage 的 standard format 发送给前端
+            ui_update["background_image"] = [{"filename": filename, "subfolder": "", "type": "temp"}]
+
+        # ================= 输入 keypoint 覆盖文本框逻辑 =================
+        if keypoint is not None:
+            # keypoint 数据可能是单个 dict (含 people) 或者 list 的 dict
+            kp_data = None
+            if isinstance(keypoint, list):
+                if len(keypoint) >= 1:
+                    kp_data = keypoint[0]
+            elif isinstance(keypoint, dict) and "people" in keypoint:
+                kp_data = keypoint
+            
+            if kp_data is not None:
+                try:
+                    # 序列化为漂亮的 JSON 格式
+                    ui_update["keypoint_json"] = json.dumps(kp_data, indent=2)
+                except Exception as e:
+                    print(f"⚠️ [Data_Tool 警告] keypoint序列化JSON失败: {e}")
 
         result_data = ([data],)
         

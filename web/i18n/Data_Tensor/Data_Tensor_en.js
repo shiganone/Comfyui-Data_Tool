@@ -19,7 +19,7 @@ Object.assign(window.DataTool_I18N.EN, {
     <b>Parameters</b><br>
     • <b>Slice Dimension</b>: The dimension on which the slice operation occurs.<br>
     • <b>Start Index</b>: The starting index for extraction. Supports negative values for reverse lookup (e.g., -1 for the last chunk).<br>
-    • <b>Extract Length</b>: The length to slice.<br>
+    • <b>Extract Length</b>: The length to slice. Set to 0 to extract to the end, or from the start to the start index if reverse extract is enabled.<br>
     • <b>Reverse Extract</b>: When enabled, extracts backward from the start index for the specified length (e.g., start index 5, length 3 -> extracts 3, 4, 5).<br>
     • <b>Output as List</b>: If enabled, splits the extracted tensor into a list of tensors of length 1; if disabled, outputs a single merged tensor block.
 </div>`

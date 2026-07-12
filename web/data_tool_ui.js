@@ -18,9 +18,11 @@ function detectIsZH() {
     return navigator.language.toLowerCase().startsWith("zh");
 }
 
+const T = (text) => window.DataTool_I18N_UI && window.DataTool_I18N_UI.T ? window.DataTool_I18N_UI.T(text) : text;
+
 app.registerExtension({
     name: "DataTool.UI_Core",
-    
+
     // 注册全局 WebSocket 监听器 (全自动刷新方案)
     setup() {
         api.addEventListener("datatool.file_saved", (event) => {
@@ -115,9 +117,9 @@ app.registerExtension({
                 };
                 document.body.append(fileInput);
 
-                this.addWidget("button", detectIsZH() ? "📂 上传文件" : "📂 Upload File", "upload", () => { fileInput.click(); });
+                this.addWidget("button", T("📂 上传文件"), "upload", () => { fileInput.click(); });
                 // 注入手动刷新按钮
-                this.addWidget("button", detectIsZH() ? "🔄 刷新列表" : "🔄 Refresh List", "refresh", () => { this.refreshLoadNode(); });
+                this.addWidget("button", T("🔄 刷新列表"), "refresh", () => { this.refreshLoadNode(); });
 
                 setTimeout(() => {
                     const sz = this.computeSize();
@@ -191,13 +193,40 @@ app.registerExtension({
         // ================= 【三点八】 Pose 编辑器：注入编辑按钮 =================
         if (nodeData.name === "UniversalPoseEditor") {
 
-            // 🌟 核心：拦截后端返回的图片路径
+            // 🌟 核心：拦截后端返回的图片路径与更新关键点JSON
             const onExecutedEditor = nodeType.prototype.onExecuted;
             nodeType.prototype.onExecuted = function (message) {
                 if (onExecutedEditor) onExecutedEditor.apply(this, arguments);
-                if (message && message.background_image) {
-                    this.properties = this.properties || {};
-                    this.properties.bg_image_path = message.background_image[0].filename;
+                if (message) {
+                    if (message.background_image) {
+                        this.properties = this.properties || {};
+                        this.properties.bg_image_path = message.background_image[0].filename;
+                    }
+                    if (message.keypoint_json) {
+                        const jsonWidget = this.widgets.find(w => w.name === "pose_json");
+                        if (jsonWidget) {
+                            // 仅在主动触发更新，或文本框本身无有效内容时，才做覆盖
+                            if (this.properties?.force_update_keypoints || !jsonWidget.value || jsonWidget.value.trim() === "") {
+                                let jsonVal = message.keypoint_json;
+                                if (Array.isArray(jsonVal)) {
+                                    // 兼容处理：如果是单字符数组则join，如果是单元素字符串数组则取第0个
+                                    if (jsonVal.length > 1 && jsonVal.every(item => typeof item === 'string' && item.length === 1)) {
+                                        jsonVal = jsonVal.join('');
+                                    } else {
+                                        jsonVal = jsonVal[0];
+                                    }
+                                }
+                                jsonWidget.value = jsonVal;
+                                if (jsonWidget.callback) {
+                                    jsonWidget.callback(jsonWidget.value);
+                                }
+                            }
+                        }
+                        // 消费标志位
+                        if (this.properties) {
+                            this.properties.force_update_keypoints = false;
+                        }
+                    }
                 }
             };
 
@@ -208,20 +237,87 @@ app.registerExtension({
                 // 🌟 核心：初始化全量状态持久化记忆树
                 // 这里的数据会随着 ComfyUI 工作流保存到 .json 中，永不丢失
                 this.properties = this.properties || {};
+                this.properties.force_update_keypoints = false; // 初始化主动触发标志为 false
                 this.properties.editor_state = this.properties.editor_state || {
                     zoom: { w: 512, h: 512, mode: "自适应", align: "居中", x: 0, y: 0, collapsed: false },
                     bg: { opacity: 0.5, w: 512, h: 512, x: 0, y: 0, auto_mode: "自适应", auto_align: "居中", collapsed: false, drag_mode: false },
-                    ui: { point_size: 4, threshold: 0.3, connect_feet: true },
+                    ui: { point_size: 4, threshold: 0.3, connect_feet: true, pose_opacity: 1.0 },
                     add_pose: { hand: false, face: false, face_pts: "70", foot: false, foot_pts: "3" }
                 };
 
+                // 注入更新关键点按钮
+                const updateBtn = this.addWidget("button", T("🔄 更新关键点"), "update_pose_btn", async () => {
+                    const btn = updateBtn;
+                    const oldText = btn.label || T("🔄 更新关键点");
+                    btn.label = T("获取中...");
+                    app.canvas.draw(true, true);
+
+                    try {
+                        // 标记此次执行为用户主动触发拉取更新
+                        this.properties = this.properties || {};
+                        this.properties.force_update_keypoints = true;
+
+                        const p = await app.graphToPrompt();
+                        const prompt = p.output;
+
+                        // 顺藤摸瓜：仅保留当前节点及其祖先节点
+                        const keep_ids = new Set();
+                        const trace = (id) => {
+                            if (keep_ids.has(id)) return;
+                            keep_ids.add(id);
+                            const n = prompt[id];
+                            if (n && n.inputs) {
+                                for (let k in n.inputs) {
+                                    let v = n.inputs[k];
+                                    if (Array.isArray(v) && v.length >= 1) trace(String(v[0]));
+                                }
+                            }
+                        };
+                        trace(String(this.id));
+                        for (let k in prompt) { if (!keep_ids.has(k)) delete prompt[k]; }
+
+                        const executeHandler = (e) => {
+                            if (e.type === "executed" && String(e.detail.node) === String(this.id)) {
+                                api.removeEventListener("executed", executeHandler);
+                                api.removeEventListener("execution_cached", executeHandler);
+                                btn.label = oldText;
+                                app.canvas.draw(true, true);
+                            } else if (e.type === "execution_cached" && e.detail.nodes.includes(String(this.id))) {
+                                api.removeEventListener("executed", executeHandler);
+                                api.removeEventListener("execution_cached", executeHandler);
+                                btn.label = oldText;
+                                app.canvas.draw(true, true);
+                            }
+                        };
+
+                        api.addEventListener("executed", executeHandler);
+                        api.addEventListener("execution_cached", executeHandler);
+
+                        const res = await fetch(window.location.pathname.replace(/\/$/, '') + '/prompt', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ client_id: api.clientId, prompt: prompt, extra_data: p.workflow })
+                        });
+
+                        if (!res.ok) {
+                            api.removeEventListener("executed", executeHandler);
+                            api.removeEventListener("execution_cached", executeHandler);
+                            throw new Error("请求被拒绝");
+                        }
+                    } catch (e) {
+                        alert("请求执行失败: " + e);
+                        btn.label = oldText;
+                        app.canvas.draw(true, true);
+                    }
+                });
+
                 // 注入触发按钮
-                this.addWidget("button", detectIsZH() ? "✏️ 编辑关键点" : "✏️ Edit Keypoints", "edit_pose_btn", () => {
+                this.addWidget("button", T("✏️ 编辑关键点"), "edit_pose_btn", () => {
                     const jsonWidget = this.widgets.find(w => w.name === "pose_json");
                     if (!jsonWidget) return;
 
                     let poseData;
-                    
+
                     // 如果文本框是空的，自动生成一个标准的 512x512 空白画布结构
                     if (!jsonWidget.value || jsonWidget.value.trim() === "") {
                         poseData = { canvas_width: 512, canvas_height: 512, people: [] };
