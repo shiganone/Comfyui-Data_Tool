@@ -1180,10 +1180,11 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         if (e.button === 1 || e.buttons === 4) { dragType = 'pan'; return; }
         if (state.bg.drag_mode) { dragType = 'bg'; return; }
 
-        let hitRadius = Math.max(10, state.ui.point_size) / v_scale;
+        const pivotHitRadius = 14 / v_scale;
+        const pointHitRadius = state.ui.point_size;
 
         // 1. 命中测试：锚点 (Pivot)
-        if (pivot && Math.hypot(pivot.x - wx, pivot.y - wy) <= hitRadius + (5 / v_scale)) {
+        if (pivot && Math.hypot(pivot.x - wx, pivot.y - wy) <= pivotHitRadius) {
             dragType = 'pivot'; return;
         }
 
@@ -1283,7 +1284,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                     const score = workingPose.people[pIdx][arr][i * 3 + 2], id = `${pIdx}|${arr}|${i}`;
                     if (score <= 0 || (score < state.ui.threshold && !selSet.has(id))) continue;
                     const dist = Math.hypot(workingPose.people[pIdx][arr][i * 3] - wx, workingPose.people[pIdx][arr][i * 3 + 1] - wy);
-                    if (dist <= hitRadius && dist < minHitDist) { minHitDist = dist; hitId = id; }
+                    if (dist <= pointHitRadius && dist < minHitDist) { minHitDist = dist; hitId = id; }
                 }
             }
         }
