@@ -245,6 +245,7 @@ Object.assign(window.DataTool_I18N.EN, {
     A universal 2D keypoint pose editor.<br>
     <b>Inputs</b><br>
     background_image (Optional): Clicking the [Load BG] button inside the editor will extract this image to use as a reference background.<br>
+    keypoint (Optional): Clicking the [Update Keypoints] button will retrieve this keypoint data and overwrite the text box.<br>
     <b>Outputs</b><br>
     POSE_KEYPOINT: Outputs the keypoint data currently inside the text box.<br>
     <b>Parameters</b><br>

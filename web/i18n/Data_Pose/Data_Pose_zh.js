@@ -286,6 +286,7 @@ Object.assign(window.DataTool_I18N.ZH, {
     通用型 2D keypoint 姿态编辑器。<br>
     <b>输入</b><br>
     背景图像 (可选)：编辑器内点击【加载背景底图】按钮，将提取此图像作为参考背景。<br>
+    keypoint (可选)：点击【更新关键点】按钮，将获取此关键点数据覆写到文本框。<br>
     <b>输出</b><br>
     POSE_KEYPOINT：输出文本框中的keypoint数据。<br>
     <b>参数</b><br>
