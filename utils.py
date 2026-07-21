@@ -9,7 +9,7 @@ import torch
 class AnyType(str):
     def __ne__(self, __value: object) -> bool:
         return False
-any_type = AnyType("IMAGE,MASK,LATENT,POSE_KEYPOINT,NLFPRED,CONDITIONING,DIRECTION_LABELS,ORIENTATION_DATA,POSE_BG_OPTIONS")
+any_type = AnyType("IMAGE,MASK,LATENT,POSE_KEYPOINT,NLFPRED,*")
 
 
 # ================= 🧮 通用时序切片数学引擎 =================

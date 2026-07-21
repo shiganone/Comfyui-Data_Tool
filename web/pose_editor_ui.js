@@ -33,7 +33,7 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
             
             <div id="dt-left-panel" style="width: 520px; min-width: 520px; height: 100%; background: #2a2a2a; display: block; overflow-y: auto; overflow-x: hidden;">
                 
-                <div style="border-bottom: 1px solid #444; flex-shrink: 0;">
+                <div style="border-bottom: 3px solid #000; flex-shrink: 0;">
                     <div id="dt-z-header" style="padding: 10px; background: #333; cursor: pointer; font-weight: bold; font-size: 16px; user-select: none; display: flex; justify-content: space-between;">
                         <span>${T("画布缩放控制")}</span><span id="dt-z-icon">${state.zoom.collapsed ? '<' : 'v'}</span>
                     </div>
@@ -59,7 +59,7 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
                     </div>
                 </div>
 
-                <div style="border-bottom: 1px solid #444; flex-shrink: 0;">
+                <div style="border-bottom: 3px solid #000; flex-shrink: 0;">
                     <div id="dt-b-header" style="padding: 10px; background: #333; cursor: pointer; font-weight: bold; font-size: 16px; user-select: none; display: flex; justify-content: space-between;">
                         <span>${T("背景底图控制")}</span><span id="dt-b-icon">${state.bg.collapsed ? '<' : 'v'}</span>
                     </div>
@@ -295,6 +295,113 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     let startPivot = { x: 0, y: 0 };
     let startBboxScaleX = 1.0;
     let startBboxScaleY = 1.0;
+
+    // 通用数值框拖拽滑块与文本输入双模绑定器
+    const bindSimpleDragToSlide = (inp, isDecimal, onUpdate) => {
+        if (!inp || inp._dragBound) return;
+        inp._dragBound = true;
+
+        inp.title = T("按住并左右拖拽可快速调整数值（左小右大）");
+        inp.style.cursor = "ew-resize";
+
+        inp.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return; // 仅限鼠标左键
+            if (inp.disabled || inp.readOnly) return;
+            if (document.activeElement === inp) {
+                // 已处于输入模式（焦点状态），允许文本选择/输入
+                return;
+            }
+
+            const startX = e.clientX;
+            const startVal = parseFloat(inp.value) || 0;
+            let hasMoved = false;
+
+            const step = isDecimal ? 0.05 : 1;
+
+            const onMouseMove = (ev) => {
+                const deltaX = ev.clientX - startX;
+                if (!hasMoved && Math.abs(deltaX) > 3) {
+                    hasMoved = true;
+                    inp.blur();
+                    document.body.style.cursor = 'ew-resize';
+                    inp.style.cursor = 'ew-resize';
+                }
+
+                if (hasMoved) {
+                    ev.preventDefault();
+
+                    let targetVal = startVal + deltaX * step;
+
+                    const minAttr = inp.getAttribute("min");
+                    const maxAttr = inp.getAttribute("max");
+                    if (minAttr !== null && minAttr !== "") {
+                        targetVal = Math.max(parseFloat(minAttr), targetVal);
+                    }
+                    if (maxAttr !== null && maxAttr !== "") {
+                        targetVal = Math.min(parseFloat(maxAttr), targetVal);
+                    }
+
+                    if (isDecimal) {
+                        targetVal = Math.round(targetVal / 0.05) * 0.05;
+                        targetVal = parseFloat(targetVal.toFixed(3));
+                    } else {
+                        targetVal = Math.round(targetVal);
+                    }
+
+                    inp.value = targetVal;
+                    inp.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            };
+
+            const onMouseUp = () => {
+                window.removeEventListener("mousemove", onMouseMove);
+                window.removeEventListener("mouseup", onMouseUp);
+                if (hasMoved) {
+                    document.body.style.cursor = '';
+                    inp.style.cursor = 'ew-resize';
+                    inp.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (onUpdate) onUpdate();
+                }
+            };
+
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+        });
+    };
+
+    // 绑定左侧面板及顶部 Header 静态数值框
+    const staticIntInputs = ["dt-z-w", "dt-z-h", "dt-z-x", "dt-z-y", "dt-b-w", "dt-b-h", "dt-b-x", "dt-b-y", "dt-ui-pts-num"];
+    const staticFloatInputs = ["dt-b-op-num", "dt-ui-pose-op-num", "dt-ui-thresh-num"];
+
+    staticIntInputs.forEach(id => {
+        const inp = document.getElementById(id);
+        if (inp) bindSimpleDragToSlide(inp, false, () => { updateStateCallback(); drawCanvas(); });
+    });
+
+    staticFloatInputs.forEach(id => {
+        const inp = document.getElementById(id);
+        if (inp) bindSimpleDragToSlide(inp, true, () => { updateStateCallback(); drawCanvas(); });
+    });
+
+    // 范围滑块 (Range Sliders) 与数值输入框联动绑定
+    const linkRangeToNum = (sliderId, numId) => {
+        const slider = document.getElementById(sliderId);
+        const num = document.getElementById(numId);
+        if (slider && num) {
+            slider.addEventListener("input", () => {
+                num.value = slider.value;
+                updateStateCallback();
+                drawCanvas();
+            });
+            num.addEventListener("input", () => {
+                slider.value = num.value;
+            });
+        }
+    };
+    linkRangeToNum("dt-b-op-slider", "dt-b-op-num");
+    linkRangeToNum("dt-ui-pts-slider", "dt-ui-pts-num");
+    linkRangeToNum("dt-ui-pose-op-slider", "dt-ui-pose-op-num");
+    linkRangeToNum("dt-ui-thresh-slider", "dt-ui-thresh-num");
 
     // 🔥 历史记录与撤回引擎 (Ctrl+Z)
     let poseHistory = [];
@@ -790,6 +897,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             const pLocked = pIds.length > 0 && pIds.every(id => lockSet.has(id));
             const pSelected = pIds.length > 0 && pIds.every(id => selSet.has(id));
             const pVis = pIds.length > 0 && pIds.every(id => { const [pp, aa, ii] = id.split('|'); return workingPose.people[pp][aa][ii * 3 + 2] > 0; });
+            const pHasSelected = pIds.length > 0 && pIds.some(id => selSet.has(id));
 
             const pId = `dt-p-${pIdx}`;
             if (isFirstTreeRender) expandedDetails.add(pId);
@@ -798,7 +906,11 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             pDiv.id = pId;
             pDiv.open = expandedDetails.has(pId);
 
-            let pHTML = `<summary style="padding:5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between; align-items:center;">
+            const pStyle = pHasSelected
+                ? "padding:5px; background:#383838; border:1px solid #888; color:#fff; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between; align-items:center;"
+                : "padding:5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between; align-items:center;";
+
+            let pHTML = `<summary style="${pStyle}">
                 <div style="display:flex; align-items:center;">${eyeUI(pVis, pIds)}${lockUI(pLocked, pIds)}${selUI(pSelected, pIds)} <span>${T("人物 ")}${pIdx}</span></div>
                 <span class="dt-del" data-p="${pIdx}" style="color:#f44336; cursor:pointer;">${T("[删除]")}</span>
             </summary>`;
@@ -809,22 +921,32 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 const sLocked = secIds.length > 0 && secIds.every(id => lockSet.has(id));
                 const sSelected = secIds.length > 0 && secIds.every(id => selSet.has(id));
                 const sVis = secIds.length > 0 && secIds.every(id => { const [pp, aa, ii] = id.split('|'); return workingPose.people[pp][aa][ii * 3 + 2] > 0; });
+                const sHasSelected = secIds.length > 0 && secIds.some(id => selSet.has(id));
 
                 const secId = `dt-sec-${pIdx}-${arrName}`;
                 const isOpen = expandedDetails.has(secId) ? 'open' : '';
 
-                let html = `<details id="${secId}" ${isOpen} style="margin-left:15px;"><summary style="padding:4px 5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; align-items:center;">${eyeUI(sVis, secIds)}${lockUI(sLocked, secIds)}${selUI(sSelected, secIds)} <span>${T(title)}</span></summary><div style="padding-left:15px;">`;
+                const sStyle = sHasSelected
+                    ? "padding:4px 5px; background:#383838; border:1px solid #888; color:#fff; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; align-items:center;"
+                    : "padding:4px 5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; align-items:center;";
+
+                let html = `<details id="${secId}" ${isOpen} style="margin-left:15px;"><summary style="${sStyle}">${eyeUI(sVis, secIds)}${lockUI(sLocked, secIds)}${selUI(sSelected, secIds)} <span>${T(title)}</span></summary><div style="padding-left:15px;">`;
                 for (let i = 0; i < p[arrName].length / 3; i++) {
                     const x = p[arrName][i * 3], y = p[arrName][i * 3 + 1], actual_s = p[arrName][i * 3 + 2];
                     const name = namesList ? (namesList[i] ? T(namesList[i]) : T("点") + i) : T("点") + i;
                     const id = `${pIdx}|${arrName}|${i}`;
                     const isVis = actual_s > 0;
+                    const isPointSelected = selSet.has(id);
 
-                    html += `<div style="display:flex; justify-content:flex-end; align-items:center; margin-bottom:4px; background:#222; border:1px solid #444; border-radius:4px; padding:3px 5px; font-family:monospace; gap:3px;">
-                        <div style="margin-right:auto; display:flex; align-items:center;">${eyeUI(isVis, [id])}${lockUI(lockSet.has(id), [id])}${selUI(selSet.has(id), [id])} <span>${name}</span></div>
+                    const ptStyle = isPointSelected
+                        ? "display:flex; justify-content:flex-end; align-items:center; margin-bottom:4px; background:#333; border:1px solid #888; color:#fff; border-radius:4px; padding:3px 5px; font-family:monospace; gap:3px;"
+                        : "display:flex; justify-content:flex-end; align-items:center; margin-bottom:4px; background:#222; border:1px solid #444; border-radius:4px; padding:3px 5px; font-family:monospace; gap:3px;";
+
+                    html += `<div style="${ptStyle}">
+                        <div style="margin-right:auto; display:flex; align-items:center;">${eyeUI(isVis, [id])}${lockUI(lockSet.has(id), [id])}${selUI(isPointSelected, [id])} <span>${name}</span></div>
                         <span style="color:#888; font-size:11px;">X:</span><input class="pt-inp" data-id="${id}" data-comp="0" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${x}" style="width:80px; background:#111; color:#fff; border:1px solid #555;">
                         <span style="color:#888; font-size:11px;">Y:</span><input class="pt-inp" data-id="${id}" data-comp="1" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${y}" style="width:80px; background:#111; color:#fff; border:1px solid #555;">
-                        <span style="color:#888; font-size:11px;">${T("分数:")}</span><input class="pt-inp" data-id="${id}" data-comp="2" type="number" step="any" min="-0.999999" max="1" ${lockSet.has(id) ? 'disabled' : ''} value="${actual_s}" style="width:90px; background:#111; color:#fff; border:1px solid #555;">
+                        <span style="color:#888; font-size:11px;">${T("分数:")}</span><input class="pt-inp" data-id="${id}" data-comp="2" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${actual_s}" style="width:90px; background:#111; color:#fff; border:1px solid #555;">
                     </div>`;
                 }
                 html += `</div></details>`; return html;
@@ -845,11 +967,23 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
 
         // ================= 🌲 直接绑定输入与点击事件引擎 =================
         container.querySelectorAll(".pt-inp").forEach(inp => {
+            const isDecimal = inp.dataset.comp === "2";
+            bindSimpleDragToSlide(inp, isDecimal);
+
             inp.addEventListener("keydown", (e) => {
                 if (e.key === "Enter") {
                     e.preventDefault();
                     e.target.blur();
                 }
+            });
+            inp.addEventListener("input", (e) => {
+                const ds = e.target.dataset;
+                const [p, arr, i] = ds.id.split('|');
+                const comp = parseInt(ds.comp);
+                let val = parseFloat(e.target.value);
+                if (isNaN(val)) val = 0;
+                workingPose.people[p][arr][i * 3 + comp] = val;
+                calcBBox(); drawCanvas();
             });
             inp.addEventListener("change", (e) => {
                 const ds = e.target.dataset;
@@ -860,7 +994,6 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 if (isNaN(val)) val = 0;
 
                 if (comp === 2) {
-                    val = Math.max(-0.999999, Math.min(1, val));
                     e.target.value = val;
                     workingPose.people[p][arr][i * 3 + 2] = val;
                 } else {
@@ -881,7 +1014,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 targetIds.forEach(id => {
                     const [p, arr, i] = id.split('|');
                     let sc = workingPose.people[p][arr][i * 3 + 2];
-                    if (allVis && sc > 0) workingPose.people[p][arr][i * 3 + 2] = (sc === 1) ? 0 : -sc;
+                    if (allVis && sc > 0) workingPose.people[p][arr][i * 3 + 2] = -sc;
                     else if (!allVis && sc <= 0) workingPose.people[p][arr][i * 3 + 2] = (sc === 0) ? 1 : Math.abs(sc);
                 });
                 calcBBox(); renderTree(); drawCanvas();
@@ -1121,7 +1254,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             selSet.forEach(id => {
                 const [p, arr, i] = id.split('|');
                 let sc = workingPose.people[p][arr][i * 3 + 2];
-                if (sc > 0) { workingPose.people[p][arr][i * 3 + 2] = (sc === 1) ? 0 : -sc; changed = true; }
+                if (sc > 0) { workingPose.people[p][arr][i * 3 + 2] = -sc; changed = true; }
             });
             selSet.clear(); // 隐藏后清空选中，消除边界框
         } else {
@@ -1150,7 +1283,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             if (hitId) {
                 const [p, arr, i] = hitId.split('|');
                 const score = workingPose.people[p][arr][i * 3 + 2];
-                workingPose.people[p][arr][i * 3 + 2] = (score === 1) ? 0 : -score;
+                workingPose.people[p][arr][i * 3 + 2] = -score;
                 selSet.delete(hitId);
                 changed = true;
             }
@@ -1859,10 +1992,7 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 if (hasMoved) {
                     ev.preventDefault();
 
-                    let step = 0.5; // 位移/旋转步长
-                    if (id === 'dt-fp-sx' || id === 'dt-fp-sy') {
-                        step = 0.005; // 缩放步长更小、更细腻
-                    }
+                    let step = 0.05; // 浮动面板小数数值框步长统一为 0.05
 
                     // 左小右大：向左拖拽（deltaX为负）时数值减少，向右拖拽（deltaX为正）时数值增加
                     let targetValue = startVal + deltaX * step;
@@ -1871,6 +2001,15 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                     }
 
                     inp.value = targetValue.toFixed(3);
+
+                    if (id === 'dt-fp-px' || id === 'dt-fp-py') {
+                        const px = parseFloat(document.getElementById("dt-fp-px").value) || 0;
+                        const py = parseFloat(document.getElementById("dt-fp-py").value) || 0;
+                        if (pivot) {
+                            pivot.x = px;
+                            pivot.y = py;
+                        }
+                    }
 
                     const syncScale = document.getElementById("dt-fp-sync-scale").checked;
                     if (syncScale) {
@@ -1988,8 +2127,8 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         });
     };
 
-    // 为需要拖拽调整的五个输入框绑定事件
-    ['dt-fp-ox', 'dt-fp-oy', 'dt-fp-sx', 'dt-fp-sy', 'dt-fp-rot'].forEach(bindDragToSlide);
+    // 为需要拖拽调整的七个输入框绑定事件
+    ['dt-fp-px', 'dt-fp-py', 'dt-fp-ox', 'dt-fp-oy', 'dt-fp-sx', 'dt-fp-sy', 'dt-fp-rot'].forEach(bindDragToSlide);
 
     // 绑定多选控制面板的全局“拖拽移动”功能
     const panel = document.getElementById("dt-float-panel");
