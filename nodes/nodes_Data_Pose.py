@@ -1240,11 +1240,17 @@ class UniversalPoseRenderer:
         
         run_mask_pass = any(v > 0 or v is True for k, v in pose_background.items() if 'radius' in k or 'hull' in k or 'expand' in k)
 
-        # 🔥 优化4：定义轻量化解析器，跳出双重渲染循环
-        def parse_kp_fast(person, k):
+        # 🔥 优化4：定义轻量化解析器，自动识别并还原相对坐标 (0~1) 为绝对坐标
+        def parse_kp_fast(person, k, w, h):
             flat = person.get(k, [])
             if not flat: return np.zeros((0, 2), dtype=np.float32), np.zeros(0, dtype=np.float32)
             arr = np.array(flat, dtype=np.float32).reshape(-1, 3)
+            valid = arr[:, 2] > 0
+            if np.any(valid):
+                max_val = np.max(arr[valid, :2])
+                if max_val <= 1.0 and max_val > 0:
+                    arr[valid, 0] *= float(w)
+                    arr[valid, 1] *= float(h)
             return arr[:, :2], arr[:, 2]
 
         for f_idx, frame in enumerate(keypoints):
@@ -1255,11 +1261,11 @@ class UniversalPoseRenderer:
             parsed_people = []
             for person in frame.get("people", []):
                 parsed_people.append({
-                    'body': parse_kp_fast(person, 'pose_keypoints_2d'),
-                    'foot': parse_kp_fast(person, 'foot_keypoints_2d'),
-                    'face': parse_kp_fast(person, 'face_keypoints_2d'),
-                    'lhand': parse_kp_fast(person, 'hand_left_keypoints_2d'),
-                    'rhand': parse_kp_fast(person, 'hand_right_keypoints_2d')
+                    'body': parse_kp_fast(person, 'pose_keypoints_2d', w, h),
+                    'foot': parse_kp_fast(person, 'foot_keypoints_2d', w, h),
+                    'face': parse_kp_fast(person, 'face_keypoints_2d', w, h),
+                    'lhand': parse_kp_fast(person, 'hand_left_keypoints_2d', w, h),
+                    'rhand': parse_kp_fast(person, 'hand_right_keypoints_2d', w, h)
                 })
             
             if bg_np_batch is not None:
@@ -1302,7 +1308,7 @@ class UniversalPoseEditor:
             },
             "optional": {
                 "background_image": ("IMAGE", {"tooltip": "背景图片"}),
-                "keypoint": ("POSE_KEYPOINT", {"tooltip": "输入关键点数据，可点击“更新关键点”按钮将其覆盖到文本框中"}),
+                "keypoint": ("POSE_KEYPOINT", {"tooltip": "输入关键点数据，可点击“更新关键点”按钮将其转换为JSON覆盖到文本框中"}),
             }
         }
         

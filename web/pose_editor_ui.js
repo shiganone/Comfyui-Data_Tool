@@ -6,8 +6,28 @@
 const T = (text) => window.DataTool_I18N_UI && window.DataTool_I18N_UI.T ? window.DataTool_I18N_UI.T(text) : text;
 
 window.DataTool = window.DataTool || {};
+
+// ⚙️ 左侧面板与分割线位置配置参数（调整这里的数值即可集中控制全部限位与默认宽度）
+window.DataTool.PANEL_CONFIG = {
+    DEFAULT_WIDTH: 550, // 👈 分割线初始化宽度 (px)
+    MIN_WIDTH: 300,     // 👈 分割线左限位（最小宽度 px）
+    MAX_WIDTH: 850      // 👈 分割线右限位（最大宽度 px）
+};
+const PANEL_CONFIG = window.DataTool.PANEL_CONFIG;
+
 window.DataTool.openUniversalPoseEditor = function (node, poseData) {
+    node.properties = node.properties || {};
+    node.properties.editor_state = node.properties.editor_state || {
+        zoom: { w: 512, h: 512, mode: "自适应", align: "居中", x: 0, y: 0, collapsed: false },
+        bg: { opacity: 0.5, w: 512, h: 512, x: 0, y: 0, auto_mode: "自适应", auto_align: "居中", collapsed: false, drag_mode: false },
+        ui: { point_size: 4, threshold: 0.3, connect_feet: true, pose_opacity: 1.0, left_panel_width: PANEL_CONFIG.DEFAULT_WIDTH, tree_expanded: {} },
+        add_pose: { hand: false, face: false, face_pts: "70", foot: false, foot_pts: "3" }
+    };
     const state = node.properties.editor_state;
+    state.ui = state.ui || {};
+    if (!state.ui.left_panel_width || state.ui.left_panel_width < PANEL_CONFIG.MIN_WIDTH) state.ui.left_panel_width = PANEL_CONFIG.MIN_WIDTH;
+    if (state.ui.left_panel_width > PANEL_CONFIG.MAX_WIDTH) state.ui.left_panel_width = PANEL_CONFIG.MAX_WIDTH;
+    if (!state.ui.tree_expanded) state.ui.tree_expanded = {};
 
     // 创建全屏遮罩与模态框
     const modal = document.createElement("div");
@@ -31,7 +51,7 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
         </style>
         <div id="dt-pose-editor-modal" style="width: 90%; height: 92%; background: #222; border-radius: 8px; display: flex; flex-direction: row; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
             
-            <div id="dt-left-panel" style="width: 520px; min-width: 520px; height: 100%; background: #2a2a2a; display: block; overflow-y: auto; overflow-x: hidden;">
+            <div id="dt-left-panel" style="width: ${state.ui.left_panel_width || PANEL_CONFIG.DEFAULT_WIDTH}px; min-width: ${PANEL_CONFIG.MIN_WIDTH}px; max-width: ${PANEL_CONFIG.MAX_WIDTH}px; height: 100%; background: #2a2a2a; display: block; overflow-y: auto; overflow-x: hidden;">
                 
                 <div style="border-bottom: 3px solid #000; flex-shrink: 0;">
                     <div id="dt-z-header" style="padding: 10px; background: #333; cursor: pointer; font-weight: bold; font-size: 16px; user-select: none; display: flex; justify-content: space-between;">
@@ -103,23 +123,27 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
                     <div style="padding: 10px; border-bottom: 1px solid #444;">
                         <div style="background: #222; border-radius: 4px; border: 1px dashed #444; padding: 10px; display: flex; align-items: center; justify-content: space-between;">
                             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px;">
-                                <span style="color:#aaa; font-weight:bold; margin-right:5px;">${T("新增pose:")}</span>
-                                <label style="cursor:pointer;"><input type="checkbox" id="dt-ap-hand" ${state.add_pose.hand ? 'checked' : ''}> ${T("手部")}</label>
-                                <label style="cursor:pointer;"><input type="checkbox" id="dt-ap-face" ${state.add_pose.face ? 'checked' : ''}> ${T("面部")}</label>
-                                <select id="dt-ap-face-pts" style="background:#111; color:#fff; border:1px solid #555; padding:2px; cursor:pointer;">
-                                    <option value="68" ${state.add_pose.face_pts === "68" ? 'selected' : ''}>${T("68(无瞳孔)")}</option>
-                                    <option value="70" ${state.add_pose.face_pts === "70" ? 'selected' : ''}>${T("70(有瞳孔)")}</option>
-                                </select>
-                                <label style="cursor:pointer;"><input type="checkbox" id="dt-ap-foot" ${state.add_pose.foot ? 'checked' : ''}> ${T("脚部")}</label>
-                                <select id="dt-ap-foot-pts" style="background:#111; color:#fff; border:1px solid #555; padding:2px; cursor:pointer;">
-                                    <option value="1" ${state.add_pose.foot_pts === "1" ? 'selected' : ''}>${T("1点")}</option>
-                                    <option value="3" ${state.add_pose.foot_pts === "3" ? 'selected' : ''}>${T("3点")}</option>
-                                </select>
+                                <span style="color:#aaa; font-weight:bold; margin-right:5px; white-space:nowrap;">${T("新增pose:")}</span>
+                                <label style="cursor:pointer; white-space:nowrap;"><input type="checkbox" id="dt-ap-hand" ${state.add_pose.hand ? 'checked' : ''}> ${T("手部")}</label>
+                                <div style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                                    <label style="cursor:pointer;"><input type="checkbox" id="dt-ap-face" ${state.add_pose.face ? 'checked' : ''}> ${T("面部")}</label>
+                                    <select id="dt-ap-face-pts" style="background:#111; color:#fff; border:1px solid #555; padding:2px; cursor:pointer;">
+                                        <option value="68" ${state.add_pose.face_pts === "68" ? 'selected' : ''}>${T("68(无瞳孔)")}</option>
+                                        <option value="70" ${state.add_pose.face_pts === "70" ? 'selected' : ''}>${T("70(有瞳孔)")}</option>
+                                    </select>
+                                </div>
+                                <div style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                                    <label style="cursor:pointer;"><input type="checkbox" id="dt-ap-foot" ${state.add_pose.foot ? 'checked' : ''}> ${T("脚部")}</label>
+                                    <select id="dt-ap-foot-pts" style="background:#111; color:#fff; border:1px solid #555; padding:2px; cursor:pointer;">
+                                        <option value="1" ${state.add_pose.foot_pts === "1" ? 'selected' : ''}>${T("1点")}</option>
+                                        <option value="3" ${state.add_pose.foot_pts === "3" ? 'selected' : ''}>${T("3点")}</option>
+                                    </select>
+                                </div>
                             </div>
                             <button id="dt-t-add" style="padding:6px 15px; background:#4CAF50; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">${T("添加")}</button>
                         </div>
                     </div>
-                    <div id="dt-tree-container" style="padding: 0 10px 20px 10px; background: #252525;">
+                    <div id="dt-tree-container" style="padding: 0 10px 20px 10px; background: #252525; box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: hidden;">
                         <div style="text-align:center; color:#777; margin-top:20px; font-style:italic;">${T("(层级树引擎等待下一批次加载...)")}</div>
                     </div>
                 </div>
@@ -127,29 +151,29 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
 
             <div id="dt-splitter" style="width: 6px; background: #444; cursor: col-resize; flex-shrink: 0; z-index: 10;"></div>
 
-            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; background: #1a1a1a;">
+            <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; background: #1a1a1a; overflow: hidden;">
                 
-                <div style="height: 45px; min-height: 45px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; background: #333;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <label style="display:flex; align-items:center;">${T("点大小:")}
-                            <input type="range" id="dt-ui-pts-slider" min="1" max="15" step="1" value="${state.ui.point_size}" style="width: 80px; margin-left:5px;">
-                            <input type="number" id="dt-ui-pts-num" min="1" max="15" step="1" value="${state.ui.point_size}" style="width: 45px; margin-left:5px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
+                <div style="min-height: 45px; border-bottom: 1px solid #444; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 6px 15px; background: #333; gap: 8px; box-sizing: border-box;">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; flex: 1; min-width: 0;">
+                        <label style="display:inline-flex; align-items:center; white-space:nowrap; flex-shrink:0; word-break:keep-all;">${T("点大小:")}
+                            <input type="range" id="dt-ui-pts-slider" min="1" max="15" step="1" value="${state.ui.point_size}" style="width: 70px; margin-left:4px;">
+                            <input type="number" id="dt-ui-pts-num" min="1" max="15" step="1" value="${state.ui.point_size}" style="width: 42px; margin-left:4px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
                         </label>
-                        <label style="display:flex; align-items:center; margin-left:10px;">${T("Pose不透明度:")}
-                            <input type="range" id="dt-ui-pose-op-slider" min="0" max="1" step="0.05" value="${state.ui.pose_opacity}" style="width: 80px; margin-left:5px;">
-                            <input type="number" id="dt-ui-pose-op-num" min="0" max="1" step="0.05" value="${state.ui.pose_opacity}" style="width: 55px; margin-left:5px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
+                        <label style="display:inline-flex; align-items:center; white-space:nowrap; flex-shrink:0; word-break:keep-all;">${T("Pose不透明度:")}
+                            <input type="range" id="dt-ui-pose-op-slider" min="0" max="1" step="0.05" value="${state.ui.pose_opacity}" style="width: 70px; margin-left:4px;">
+                            <input type="number" id="dt-ui-pose-op-num" min="0" max="1" step="0.05" value="${state.ui.pose_opacity}" style="width: 50px; margin-left:4px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
                         </label>
-                        <label style="display:flex; align-items:center; margin-left:10px;">${T("阈值:")}
-                            <input type="range" id="dt-ui-thresh-slider" min="0" max="1" step="0.01" value="${state.ui.threshold}" style="width: 80px; margin-left:5px;">
-                            <input type="number" id="dt-ui-thresh-num" min="0" max="1" step="0.01" value="${state.ui.threshold}" style="width: 55px; margin-left:5px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
+                        <label style="display:inline-flex; align-items:center; white-space:nowrap; flex-shrink:0; word-break:keep-all;">${T("阈值:")}
+                            <input type="range" id="dt-ui-thresh-slider" min="0" max="1" step="0.01" value="${state.ui.threshold}" style="width: 70px; margin-left:4px;">
+                            <input type="number" id="dt-ui-thresh-num" min="0" max="1" step="0.01" value="${state.ui.threshold}" style="width: 50px; margin-left:4px; background:#111; color:#fff; border:1px solid #555; padding:2px;">
                         </label>
-                        <label style="display:flex; align-items:center; margin-left:15px; cursor:pointer;">
-                            <input type="checkbox" id="dt-ui-conn-feet" ${state.ui.connect_feet ? 'checked' : ''} style="margin-right:5px; cursor:pointer;"> ${T("脚部连线")}
+                        <label style="display:inline-flex; align-items:center; white-space:nowrap; flex-shrink:0; word-break:keep-all; cursor:pointer;">
+                            <input type="checkbox" id="dt-ui-conn-feet" ${state.ui.connect_feet ? 'checked' : ''} style="margin-right:4px; cursor:pointer;"> ${T("脚部连线")}
                         </label>
                     </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="dt-btn-cancel" style="width: 100px; padding: 6px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold;">${T("取消")}</button>
-                        <button id="dt-btn-save" style="width: 100px; padding: 6px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold;">${T("确认保存")}</button>
+                    <div style="display: flex; gap: 10px; flex-shrink: 0; margin-left: auto;">
+                        <button id="dt-btn-cancel" style="width: 90px; padding: 6px; background: #757575; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold; white-space:nowrap;">${T("取消")}</button>
+                        <button id="dt-btn-save" style="width: 90px; padding: 6px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight:bold; white-space:nowrap;">${T("确认保存")}</button>
                     </div>
                 </div>
                 
@@ -194,6 +218,16 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
 
     const updateState = () => {
         // 更新内存状态树
+        const leftPanel = document.getElementById("dt-left-panel");
+        if (leftPanel) {
+            let lpW = parseInt(leftPanel.style.width);
+            if (!isNaN(lpW)) {
+                if (lpW < PANEL_CONFIG.MIN_WIDTH) lpW = PANEL_CONFIG.MIN_WIDTH;
+                if (lpW > PANEL_CONFIG.MAX_WIDTH) lpW = PANEL_CONFIG.MAX_WIDTH;
+                state.ui.left_panel_width = lpW;
+            }
+        }
+
         state.zoom.w = parseInt(document.getElementById("dt-z-w").value) || 512;
         state.zoom.h = parseInt(document.getElementById("dt-z-h").value) || 512;
         state.zoom.mode = document.getElementById("dt-z-mode").value;
@@ -271,9 +305,53 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
 // ✏️ 通用型 Pose 编辑器 - 核心画布渲染与数据流转引擎
 // =========================================================================
 function initEditorEngine(node, poseData, state, updateStateCallback) {
-    // 1. 数据隔离克隆
+    // 1. 数据隔离克隆与相对坐标(0~1)自动转化为绝对像素坐标
     let workingPose = JSON.parse(JSON.stringify(poseData));
-    const backupPose = JSON.parse(JSON.stringify(poseData));
+
+    const cw = workingPose.canvas_width || (state && state.zoom ? state.zoom.w : 512) || 512;
+    const ch = workingPose.canvas_height || (state && state.zoom ? state.zoom.h : 512) || 512;
+    let maxCoord = 0;
+    let hasValidPoints = false;
+    const kpKeys = ['pose_keypoints_2d', 'face_keypoints_2d', 'hand_left_keypoints_2d', 'hand_right_keypoints_2d', 'foot_keypoints_2d'];
+
+    if (Array.isArray(workingPose.people)) {
+        workingPose.people.forEach(p => {
+            kpKeys.forEach(k => {
+                if (Array.isArray(p[k])) {
+                    const arr = p[k];
+                    for (let i = 0; i < arr.length; i += 3) {
+                        const x = arr[i];
+                        const y = arr[i + 1];
+                        const c = arr[i + 2];
+                        if (c > 0) {
+                            hasValidPoints = true;
+                            if (x > maxCoord) maxCoord = x;
+                            if (y > maxCoord) maxCoord = y;
+                        }
+                    }
+                }
+            });
+        });
+
+        if (hasValidPoints && maxCoord <= 1.0 && maxCoord > 0) {
+            workingPose.people.forEach(p => {
+                kpKeys.forEach(k => {
+                    if (Array.isArray(p[k])) {
+                        const arr = p[k];
+                        for (let i = 0; i < arr.length; i += 3) {
+                            const c = arr[i + 2];
+                            if (c > 0) {
+                                arr[i] = parseFloat((arr[i] * cw).toFixed(3));
+                                arr[i + 1] = parseFloat((arr[i + 1] * ch).toFixed(3));
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    const backupPose = JSON.parse(JSON.stringify(workingPose));
     let bgImgObject = null;
 
     // 自由变换(Transform)核心变量 (提前声明以防止 TDZ / 悬空引用)
@@ -859,20 +937,18 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
     };
 
     // 3. 强互动的层级树 DOM 引擎 (🔥 彻底重构：阻止冒泡与一次性 DOM 生成)
-    const expandedDetails = new Set();
-    let isFirstTreeRender = true;
+    state.ui.tree_expanded = state.ui.tree_expanded || {};
 
     const renderTree = () => {
         const container = document.getElementById("dt-tree-container");
+        if (!container) return;
 
-        if (!isFirstTreeRender) {
-            container.querySelectorAll("details").forEach(d => {
-                if (d.id) {
-                    if (d.open) expandedDetails.add(d.id);
-                    else expandedDetails.delete(d.id);
-                }
-            });
-        }
+        // 收集重新渲染前 DOM 中已有 details 元素的展开/收起状态
+        container.querySelectorAll("details").forEach(d => {
+            if (d.id) {
+                state.ui.tree_expanded[d.id] = d.open;
+            }
+        });
         container.innerHTML = "";
 
         const eyeUI = (isVis, ids) => `<span class="dt-vis" data-ids='${JSON.stringify(ids)}' style="cursor:pointer; margin-right:5px; filter: grayscale(${isVis ? 0 : 1}); opacity:${isVis ? 1 : 0.3}" title="${T("可见性")}">👁️</span>`;
@@ -900,19 +976,29 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             const pHasSelected = pIds.length > 0 && pIds.some(id => selSet.has(id));
 
             const pId = `dt-p-${pIdx}`;
-            if (isFirstTreeRender) expandedDetails.add(pId);
+            let pIsOpen;
+            if (pId in state.ui.tree_expanded) {
+                pIsOpen = !!state.ui.tree_expanded[pId];
+            } else {
+                pIsOpen = true; // 人物层默认展开
+                state.ui.tree_expanded[pId] = true;
+            }
 
             const pDiv = document.createElement("details");
             pDiv.id = pId;
-            pDiv.open = expandedDetails.has(pId);
+            pDiv.open = pIsOpen;
+            pDiv.style.position = "relative"; // 供“添加部位”小面板定位
 
             const pStyle = pHasSelected
-                ? "padding:5px; background:#383838; border:1px solid #888; color:#fff; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between; align-items:center;"
-                : "padding:5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between; align-items:center;";
+                ? "padding:5px; background:#383838; border:1px solid #888; color:#fff; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:4px; box-sizing:border-box; width:100%; max-width:100%;"
+                : "padding:5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; font-weight:bold; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:4px; box-sizing:border-box; width:100%; max-width:100%;";
 
             let pHTML = `<summary style="${pStyle}">
-                <div style="display:flex; align-items:center;">${eyeUI(pVis, pIds)}${lockUI(pLocked, pIds)}${selUI(pSelected, pIds)} <span>${T("人物 ")}${pIdx}</span></div>
-                <span class="dt-del" data-p="${pIdx}" style="color:#f44336; cursor:pointer;">${T("[删除]")}</span>
+                <div style="display:flex; align-items:center; white-space:nowrap; flex-shrink:0; max-width:100%;">${eyeUI(pVis, pIds)}${lockUI(pLocked, pIds)}${selUI(pSelected, pIds)} <span style="white-space:nowrap; word-break:keep-all; flex-shrink:0;">${T("人物 ")}${pIdx}</span></div>
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; margin-left:auto;">
+                    <span class="dt-add-part-btn" data-p="${pIdx}" style="color:#4CAF50; cursor:pointer; font-size:12px; border:1px solid #4CAF50; padding:1px 6px; border-radius:3px; white-space:nowrap; word-break:keep-all;">${T("添加部位")}</span>
+                    <span class="dt-del" data-p="${pIdx}" style="color:#f44336; cursor:pointer; font-size:12px; border:1px solid #f44336; padding:1px 6px; border-radius:3px; white-space:nowrap; word-break:keep-all;">${T("删除")}</span>
+                </div>
             </summary>`;
 
             const buildSection = (title, arrName, namesList) => {
@@ -924,13 +1010,24 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 const sHasSelected = secIds.length > 0 && secIds.some(id => selSet.has(id));
 
                 const secId = `dt-sec-${pIdx}-${arrName}`;
-                const isOpen = expandedDetails.has(secId) ? 'open' : '';
+                let secIsOpen;
+                if (secId in state.ui.tree_expanded) {
+                    secIsOpen = !!state.ui.tree_expanded[secId];
+                } else {
+                    secIsOpen = false; // 部位层默认收起
+                    state.ui.tree_expanded[secId] = false;
+                }
+                const isOpenStr = secIsOpen ? 'open' : '';
 
                 const sStyle = sHasSelected
-                    ? "padding:4px 5px; background:#383838; border:1px solid #888; color:#fff; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; align-items:center;"
-                    : "padding:4px 5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; align-items:center;";
+                    ? "padding:4px 5px; background:#383838; border:1px solid #888; color:#fff; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px; box-sizing:border-box; width:100%; max-width:100%;"
+                    : "padding:4px 5px; background:#2a2a2a; border:1px solid #444; border-radius:4px; margin-bottom:4px; cursor:pointer; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px; box-sizing:border-box; width:100%; max-width:100%;";
 
-                let html = `<details id="${secId}" ${isOpen} style="margin-left:15px;"><summary style="${sStyle}">${eyeUI(sVis, secIds)}${lockUI(sLocked, secIds)}${selUI(sSelected, secIds)} <span>${T(title)}</span></summary><div style="padding-left:15px;">`;
+                const delPartHtml = (arrName !== "pose_keypoints_2d")
+                    ? `<span class="dt-del-part" data-p="${pIdx}" data-part="${arrName}" style="color:#f44336; cursor:pointer; font-size:12px; border:1px solid #f44336; padding:1px 6px; border-radius:3px; white-space:nowrap; word-break:keep-all; margin-left:auto;">${T("删除")}</span>`
+                    : "";
+
+                let html = `<details id="${secId}" ${isOpenStr} style="margin-left:10px; box-sizing:border-box; max-width:100%;"><summary style="${sStyle}"><div style="display:flex; align-items:center; white-space:nowrap; flex-shrink:0; max-width:100%;">${eyeUI(sVis, secIds)}${lockUI(sLocked, secIds)}${selUI(sSelected, secIds)} <span style="white-space:nowrap; word-break:keep-all; flex-shrink:0;">${T(title)}</span></div>${delPartHtml}</summary><div style="padding-left:8px; box-sizing:border-box; max-width:100%;">`;
                 for (let i = 0; i < p[arrName].length / 3; i++) {
                     const x = p[arrName][i * 3], y = p[arrName][i * 3 + 1], actual_s = p[arrName][i * 3 + 2];
                     const name = namesList ? (namesList[i] ? T(namesList[i]) : T("点") + i) : T("点") + i;
@@ -939,14 +1036,28 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                     const isPointSelected = selSet.has(id);
 
                     const ptStyle = isPointSelected
-                        ? "display:flex; justify-content:flex-end; align-items:center; margin-bottom:4px; background:#333; border:1px solid #888; color:#fff; border-radius:4px; padding:3px 5px; font-family:monospace; gap:3px;"
-                        : "display:flex; justify-content:flex-end; align-items:center; margin-bottom:4px; background:#222; border:1px solid #444; border-radius:4px; padding:3px 5px; font-family:monospace; gap:3px;";
+                        ? "display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:4px; background:#333; border:1px solid #888; color:#fff; border-radius:4px; padding:4px 6px; font-family:monospace; gap:4px; box-sizing:border-box; width:100%; max-width:100%; overflow:hidden;"
+                        : "display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; margin-bottom:4px; background:#222; border:1px solid #444; border-radius:4px; padding:4px 6px; font-family:monospace; gap:4px; box-sizing:border-box; width:100%; max-width:100%; overflow:hidden;";
 
                     html += `<div style="${ptStyle}">
-                        <div style="margin-right:auto; display:flex; align-items:center;">${eyeUI(isVis, [id])}${lockUI(lockSet.has(id), [id])}${selUI(isPointSelected, [id])} <span>${name}</span></div>
-                        <span style="color:#888; font-size:11px;">X:</span><input class="pt-inp" data-id="${id}" data-comp="0" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${x}" style="width:80px; background:#111; color:#fff; border:1px solid #555;">
-                        <span style="color:#888; font-size:11px;">Y:</span><input class="pt-inp" data-id="${id}" data-comp="1" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${y}" style="width:80px; background:#111; color:#fff; border:1px solid #555;">
-                        <span style="color:#888; font-size:11px;">${T("分数:")}</span><input class="pt-inp" data-id="${id}" data-comp="2" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${actual_s}" style="width:90px; background:#111; color:#fff; border:1px solid #555;">
+                        <div style="display:flex; align-items:center; white-space:nowrap; flex-shrink:0; max-width:100%;">
+                            ${eyeUI(isVis, [id])}${lockUI(lockSet.has(id), [id])}${selUI(isPointSelected, [id])} 
+                            <span style="white-space:nowrap; word-break:keep-all; flex-shrink:0;">${name}</span>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:4px 6px; flex-grow:1; margin-left:auto;">
+                            <div style="display:inline-flex; align-items:center; white-space:nowrap; gap:2px; flex-shrink:0;">
+                                <span style="color:#888; font-size:11px; white-space:nowrap; word-break:keep-all;">X:</span>
+                                <input class="pt-inp" data-id="${id}" data-comp="0" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${x}" style="width:65px; min-width:45px; background:#111; color:#fff; border:1px solid #555; padding:1px 3px; box-sizing:border-box;">
+                            </div>
+                            <div style="display:inline-flex; align-items:center; white-space:nowrap; gap:2px; flex-shrink:0;">
+                                <span style="color:#888; font-size:11px; white-space:nowrap; word-break:keep-all;">Y:</span>
+                                <input class="pt-inp" data-id="${id}" data-comp="1" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${y}" style="width:65px; min-width:45px; background:#111; color:#fff; border:1px solid #555; padding:1px 3px; box-sizing:border-box;">
+                            </div>
+                            <div style="display:inline-flex; align-items:center; white-space:nowrap; gap:2px; flex-shrink:0;">
+                                <span style="color:#888; font-size:11px; white-space:nowrap; word-break:keep-all;">${T("分数:")}</span>
+                                <input class="pt-inp" data-id="${id}" data-comp="2" type="number" step="any" ${lockSet.has(id) ? 'disabled' : ''} value="${actual_s}" style="width:70px; min-width:50px; background:#111; color:#fff; border:1px solid #555; padding:1px 3px; box-sizing:border-box;">
+                            </div>
+                        </div>
                     </div>`;
                 }
                 html += `</div></details>`; return html;
@@ -963,6 +1074,16 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
 
             pDiv.innerHTML = pHTML;
             container.appendChild(pDiv);
+        });
+
+        // 绑定 details 的 toggle 事件监听，用户手动展开/收起时实时持久化记录到 workflow
+        container.querySelectorAll("details").forEach(d => {
+            d.addEventListener("toggle", () => {
+                if (d.id) {
+                    state.ui.tree_expanded[d.id] = d.open;
+                    if (updateStateCallback) updateStateCallback();
+                }
+            });
         });
 
         // ================= 🌲 直接绑定输入与点击事件引擎 =================
@@ -1042,6 +1163,111 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             });
         });
 
+        // 程序化单部位生成数据引擎 (用于给已有人物添加或覆盖部位)
+        const generatePartData = (p, pIdx, partType, options = {}) => {
+            const cw = workingPose.canvas_width || state.zoom.w || 512;
+            const ch = workingPose.canvas_height || state.zoom.h || 512;
+            const aw = 512, ah = 1024;
+            const scale = Math.min(cw / aw, ch / ah) * 0.85;
+
+            const ox = (cw - aw * scale) / 2;
+            const oy = (ch - ah * scale) / 2;
+            const tx = (x) => x * scale + ox;
+            const ty = (y) => y * scale + oy;
+
+            const body = p.pose_keypoints_2d;
+
+            if (partType === 'hand') {
+                const makeHand = (cx, cy, isL) => {
+                    let pts = new Array(21 * 3).fill(0);
+                    pts[0] = cx; pts[1] = cy; pts[2] = 0.9;
+                    const sign = isL ? 1 : -1;
+                    const angles = [Math.PI * 0.8, Math.PI * 0.6, Math.PI * 0.5, Math.PI * 0.4, Math.PI * 0.25];
+                    const lengths = [12, 16, 18, 17, 13].map(l => l * scale);
+
+                    for (let f = 0; f < 5; f++) {
+                        let baseAngle = isL ? angles[f] : Math.PI - angles[f];
+                        for (let j = 1; j <= 4; j++) {
+                            const idx = 1 + f * 4 + (j - 1);
+                            const curAngle = baseAngle + (j * 0.05 * sign);
+                            const r = lengths[f] * j;
+                            pts[idx * 3] = cx + Math.cos(curAngle) * r;
+                            pts[idx * 3 + 1] = cy + Math.sin(curAngle) * r;
+                            pts[idx * 3 + 2] = 0.9;
+                        }
+                    }
+                    return pts;
+                };
+
+                let rwx = (body && body[4 * 3 + 2] > 0) ? body[4 * 3] : tx(157);
+                let rwy = (body && body[4 * 3 + 2] > 0) ? body[4 * 3 + 1] : ty(476);
+                let lwx = (body && body[7 * 3 + 2] > 0) ? body[7 * 3] : tx(355);
+                let lwy = (body && body[7 * 3 + 2] > 0) ? body[7 * 3 + 1] : ty(476);
+
+                p.hand_right_keypoints_2d = makeHand(rwx, rwy, false);
+                p.hand_left_keypoints_2d = makeHand(lwx, lwy, true);
+            } else if (partType === 'face') {
+                const count = parseInt(options.facePts || "68");
+                let pts = new Array(count * 3).fill(0);
+
+                let fx_center = (body && body[0 * 3 + 2] > 0) ? body[0 * 3] : tx(256);
+                let fy_center = (body && body[0 * 3 + 2] > 0) ? body[0 * 3 + 1] : ty(120);
+
+                const setPt = (i, x, y) => {
+                    if (i < count) {
+                        pts[i * 3] = fx_center + (x - 256) * scale;
+                        pts[i * 3 + 1] = fy_center + (y - 120) * scale;
+                        pts[i * 3 + 2] = 0.9;
+                    }
+                };
+
+                const fx = 256, fy = 120, fw = 35, fh = 45;
+                for (let i = 0; i <= 16; i++) {
+                    let a = Math.PI * (1 - i / 16);
+                    setPt(i, fx + Math.cos(a) * fw, fy + 10 + Math.sin(a) * fh);
+                }
+                for (let i = 0; i < 5; i++) setPt(17 + i, fx - 28 + i * 6, fy - 20 - Math.sin((i / 4) * Math.PI) * 4);
+                for (let i = 0; i < 5; i++) setPt(22 + i, fx + 4 + i * 6, fy - 20 - Math.sin((i / 4) * Math.PI) * 4);
+                for (let i = 0; i < 4; i++) setPt(27 + i, fx, fy - 10 + i * 7);
+                for (let i = 0; i < 5; i++) setPt(31 + i, fx - 12 + i * 6, fy + 15 + (i == 2 ? 2 : 0));
+
+                const reX = fx - 16, reY = fy - 8, leX = fx + 16, leY = fy - 8;
+                setPt(36, reX - 8, reY); setPt(37, reX - 4, reY - 3); setPt(38, reX + 4, reY - 3); setPt(39, reX + 8, reY); setPt(40, reX + 4, reY + 3); setPt(41, reX - 4, reY + 3);
+                setPt(42, leX - 8, leY); setPt(43, leX - 4, leY - 3); setPt(44, leX + 4, leY - 3); setPt(45, leX + 8, leY); setPt(46, leX + 4, leY + 3); setPt(47, leX - 4, leY + 3);
+
+                const mx = fx, my = fy + 28;
+                setPt(48, mx - 18, my); setPt(49, mx - 10, my - 5); setPt(50, mx - 4, my - 6); setPt(51, mx, my - 5); setPt(52, mx + 4, my - 6); setPt(53, mx + 10, my - 5); setPt(54, mx + 18, my);
+                setPt(55, mx + 10, my + 6); setPt(56, mx + 4, my + 7); setPt(57, mx, my + 7); setPt(58, mx - 4, my + 7); setPt(59, mx - 10, my + 6);
+                setPt(60, mx - 14, my); setPt(61, mx - 5, my - 2); setPt(62, mx, my - 2); setPt(63, mx + 5, my - 2); setPt(64, mx + 14, my);
+                setPt(65, mx + 5, my + 2); setPt(66, mx, my + 2); setPt(67, mx - 5, my + 2);
+
+                if (count === 70) { setPt(68, reX, reY); setPt(69, leX, leY); }
+                p.face_keypoints_2d = pts;
+            } else if (partType === 'foot') {
+                const count = parseInt(options.footPts || "1");
+                let pts = new Array((count === 1 ? 2 : 6) * 3).fill(0);
+
+                let lax = (body && body[13 * 3 + 2] > 0) ? body[13 * 3] : tx(283);
+                let lay = (body && body[13 * 3 + 2] > 0) ? body[13 * 3 + 1] : ty(934);
+                let rax = (body && body[10 * 3 + 2] > 0) ? body[10 * 3] : tx(229);
+                let ray = (body && body[10 * 3 + 2] > 0) ? body[10 * 3 + 1] : ty(934);
+
+                if (count === 1) {
+                    pts[0] = lax - 5 * scale; pts[1] = lay + 59 * scale; pts[2] = 0.9;
+                    pts[3] = rax + 5 * scale; pts[4] = ray + 59 * scale; pts[5] = 0.9;
+                } else {
+                    pts[0] = lax - 16 * scale; pts[1] = lay + 62 * scale; pts[2] = 0.9;
+                    pts[3] = lax + 6 * scale; pts[4] = lay + 56 * scale; pts[5] = 0.9;
+                    pts[6] = lax - 7 * scale; pts[7] = lay + 12 * scale; pts[8] = 0.9;
+
+                    pts[9] = rax + 16 * scale; pts[10] = ray + 62 * scale; pts[11] = 0.9;
+                    pts[12] = rax - 6 * scale; pts[13] = ray + 56 * scale; pts[14] = 0.9;
+                    pts[15] = rax + 7 * scale; pts[16] = ray + 12 * scale; pts[17] = 0.9;
+                }
+                p.foot_keypoints_2d = pts;
+            }
+        };
+
         container.querySelectorAll(".dt-del").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.preventDefault(); e.stopPropagation();
@@ -1052,7 +1278,102 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
             });
         });
 
-        isFirstTreeRender = false;
+        // 部位删除按钮
+        container.querySelectorAll(".dt-del-part").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const pIdx = parseInt(btn.dataset.p);
+                const partName = btn.dataset.part;
+                if (partName && partName !== 'pose_keypoints_2d' && workingPose.people[pIdx]) {
+                    delete workingPose.people[pIdx][partName];
+                    for (const id of Array.from(selSet)) {
+                        if (id.startsWith(`${pIdx}|${partName}|`)) selSet.delete(id);
+                    }
+                    for (const id of Array.from(lockSet)) {
+                        if (id.startsWith(`${pIdx}|${partName}|`)) lockSet.delete(id);
+                    }
+                    calcBBox(); renderTree(); drawCanvas();
+                    saveHistory(); // 🔥 记录删除部位历史
+                }
+            });
+        });
+
+        // 添加部位按钮（打开小面板）
+        container.querySelectorAll(".dt-add-part-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const pIdx = parseInt(btn.dataset.p);
+                const p = workingPose.people[pIdx];
+                if (!p) return;
+
+                const existingPanel = container.querySelector(`.dt-add-part-panel[data-p="${pIdx}"]`);
+                if (existingPanel) {
+                    existingPanel.remove();
+                    return;
+                }
+                container.querySelectorAll(".dt-add-part-panel").forEach(panel => panel.remove());
+
+                const panel = document.createElement("div");
+                panel.className = "dt-add-part-panel";
+                panel.dataset.p = pIdx;
+                panel.style.cssText = "position: absolute; right: 10px; bottom: 100%; margin-bottom: 4px; z-index: 100; background: #2d2d2d; border: 1px solid #666; border-radius: 6px; padding: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.7); min-width: 175px; display: flex; flex-direction: column; gap: 8px;";
+
+                panel.innerHTML = `
+                    <div style="font-size: 12px; font-weight: bold; color: #eee; border-bottom: 1px solid #444; padding-bottom: 5px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>${T("添加部位")} - ${T("人物 ")}${pIdx}</span>
+                        <span class="dt-app-close" style="cursor:pointer; color:#aaa; font-size:14px; font-weight:normal;">✕</span>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px; font-size:12px; color:#ccc;">
+                        <label style="cursor:pointer; display:flex; align-items:center;">
+                            <input type="checkbox" class="dt-app-hand" style="margin-right:6px; cursor:pointer;"> ${T("手部")}
+                        </label>
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <label style="cursor:pointer; display:flex; align-items:center;">
+                                <input type="checkbox" class="dt-app-face" style="margin-right:6px; cursor:pointer;"> ${T("面部")}
+                            </label>
+                            <select class="dt-app-face-pts" style="background:#111; color:#fff; border:1px solid #555; padding:2px 4px; border-radius:3px; font-size:11px; cursor:pointer;">
+                                <option value="68" selected>${T("68(无瞳孔)")}</option>
+                                <option value="70">${T("70(有瞳孔)")}</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <label style="cursor:pointer; display:flex; align-items:center;">
+                                <input type="checkbox" class="dt-app-foot" style="margin-right:6px; cursor:pointer;"> ${T("脚部")}
+                            </label>
+                            <select class="dt-app-foot-pts" style="background:#111; color:#fff; border:1px solid #555; padding:2px 4px; border-radius:3px; font-size:11px; cursor:pointer;">
+                                <option value="1">${T("1点")}</option>
+                                <option value="3" selected>${T("3点")}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="dt-app-apply" style="margin-top:4px; padding:6px 0; background:#4CAF50; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold; font-size:12px; width:100%;">
+                        ${T("覆盖/添加")}
+                    </button>
+                `;
+
+                panel.addEventListener("click", (ev) => ev.stopPropagation());
+                panel.querySelector(".dt-app-close").onclick = () => panel.remove();
+
+                panel.querySelector(".dt-app-apply").onclick = () => {
+                    const chkHand = panel.querySelector(".dt-app-hand").checked;
+                    const chkFace = panel.querySelector(".dt-app-face").checked;
+                    const facePts = panel.querySelector(".dt-app-face-pts").value;
+                    const chkFoot = panel.querySelector(".dt-app-foot").checked;
+                    const footPts = panel.querySelector(".dt-app-foot-pts").value;
+
+                    if (chkHand) generatePartData(p, pIdx, 'hand');
+                    if (chkFace) generatePartData(p, pIdx, 'face', { facePts });
+                    if (chkFoot) generatePartData(p, pIdx, 'foot', { footPts });
+
+                    panel.remove();
+                    calcBBox(); renderTree(); drawCanvas();
+                    saveHistory(); // 🔥 记录添加/覆盖部位历史
+                };
+
+                const pDiv = document.getElementById(`dt-p-${pIdx}`);
+                if (pDiv) pDiv.appendChild(panel);
+            });
+        });
     };
 
     // 4. 重映射数学引擎 (🔥 修复历史数据污染崩溃)
@@ -2203,10 +2524,8 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         const aw = 512, ah = 1024; // 抽象模型基准尺寸
         const scale = Math.min(cw / aw, ch / ah) * 0.85; // 0.85 留出安全边距
 
-        // 动态偏移量：防止多人重叠，每次新增向右下略微偏移
-        const shift = workingPose.people.length * 40;
-        const ox = (cw - aw * scale) / 2 + (shift % (cw / 3));
-        const oy = (ch - ah * scale) / 2 + (shift % (ch / 3));
+        const ox = (cw - aw * scale) / 2;
+        const oy = (ch - ah * scale) / 2;
 
         const tx = (x) => x * scale + ox;
         const ty = (y) => y * scale + oy;
@@ -2306,7 +2625,8 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         }
 
         workingPose.people.push(newPerson);
-        expandedDetails.add(`dt-p-${workingPose.people.length - 1}`); // 强制新人物默认展开
+        state.ui.tree_expanded[`dt-p-${workingPose.people.length - 1}`] = true; // 强制新人物默认展开
+        if (updateStateCallback) updateStateCallback();
         renderTree(); drawCanvas();
     };
 
@@ -2324,13 +2644,29 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
         if (!isResizingSplitter) return;
         const rect = modalInner.getBoundingClientRect();
         let newWidth = e.clientX - rect.left;
-        if (newWidth < 380) newWidth = 380; // 遵循左侧最小宽度约束
-        if (newWidth > rect.width - 300) newWidth = rect.width - 300; // 预留右侧最小宽度
+
+        let maxAllowed = Math.min(PANEL_CONFIG.MAX_WIDTH, rect.width - 350);
+        if (maxAllowed < PANEL_CONFIG.MIN_WIDTH) maxAllowed = PANEL_CONFIG.MIN_WIDTH;
+
+        if (newWidth < PANEL_CONFIG.MIN_WIDTH) newWidth = PANEL_CONFIG.MIN_WIDTH;
+        if (newWidth > maxAllowed) newWidth = maxAllowed;
+
         leftPanel.style.width = newWidth + "px";
+        state.ui.left_panel_width = newWidth;
+        if (updateStateCallback) updateStateCallback();
         drawCanvas(); // 必须实时重绘以自动校准 Canvas 宽高！
     });
     document.addEventListener("mouseup", () => {
-        if (isResizingSplitter) isResizingSplitter = false;
+        if (isResizingSplitter) {
+            isResizingSplitter = false;
+            let curWidth = parseInt(leftPanel.style.width);
+            if (curWidth) {
+                if (curWidth < PANEL_CONFIG.MIN_WIDTH) curWidth = PANEL_CONFIG.MIN_WIDTH;
+                if (curWidth > PANEL_CONFIG.MAX_WIDTH) curWidth = PANEL_CONFIG.MAX_WIDTH;
+                state.ui.left_panel_width = curWidth;
+                if (updateStateCallback) updateStateCallback();
+            }
+        }
     });
 
 

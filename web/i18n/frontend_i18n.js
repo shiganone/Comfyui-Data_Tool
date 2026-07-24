@@ -17,7 +17,7 @@ window.DataTool_I18N_UI.EN = {
     "背景底图控制": "Background Image", "加载背景底图": "Load BG", "拖动底图: ": "Drag BG: ", "开": "ON", "关": "OFF", "不透明度:": "Opacity:",
     "-- 自动对齐画布 --": "-- Auto Align Canvas --",
     "关键点层级树": "Keypoint Tree", "新增pose:": "Add Pose:", "手部": "Hand", "面部": "Face", "脚部": "Foot",
-    "68(无瞳孔)": "68 (No Pupil)", "70(有瞳孔)": "70 (Pupil)", "1点": "1 Pt", "3点": "3 Pts", "添加": "Add",
+    "68(无瞳孔)": "68 (No Pupil)", "70(有瞳孔)": "70 (Pupil)", "1点": "1 Pt", "3点": "3 Pts", "添加": "Add", "添加部位": "Add Part", "覆盖/添加": "Add/Overwrite", "删除": "Delete",
     "(层级树引擎等待下一批次加载...)": "(Tree engine loading...)",
     "点大小:": "Pt Size:", "Pose不透明度:": "Pose Opacity:", "阈值:": "Threshold:", "脚部连线": "Connect Feet", "取消": "Cancel", "确认保存": "Save",
     "自适应": "Fit", "拉伸": "Stretch", "裁切": "Crop", "保持": "Keep", "对齐高度": "Fit Height", "对齐宽度": "Fit Width",

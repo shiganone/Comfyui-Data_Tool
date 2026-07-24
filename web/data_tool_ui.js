@@ -241,7 +241,7 @@ app.registerExtension({
                 this.properties.editor_state = this.properties.editor_state || {
                     zoom: { w: 512, h: 512, mode: "自适应", align: "居中", x: 0, y: 0, collapsed: false },
                     bg: { opacity: 0.5, w: 512, h: 512, x: 0, y: 0, auto_mode: "自适应", auto_align: "居中", collapsed: false, drag_mode: false },
-                    ui: { point_size: 4, threshold: 0.3, connect_feet: true, pose_opacity: 1.0 },
+                    ui: { point_size: 4, threshold: 0.3, connect_feet: true, pose_opacity: 1.0, left_panel_width: (window.DataTool && window.DataTool.PANEL_CONFIG ? window.DataTool.PANEL_CONFIG.DEFAULT_WIDTH : 520), tree_expanded: {} },
                     add_pose: { hand: false, face: false, face_pts: "70", foot: false, foot_pts: "3" }
                 };
 
