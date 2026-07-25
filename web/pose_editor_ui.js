@@ -10,7 +10,7 @@ window.DataTool = window.DataTool || {};
 // ⚙️ 左侧面板与分割线位置配置参数（调整这里的数值即可集中控制全部限位与默认宽度）
 window.DataTool.PANEL_CONFIG = {
     DEFAULT_WIDTH: 550, // 👈 分割线初始化宽度 (px)
-    MIN_WIDTH: 300,     // 👈 分割线左限位（最小宽度 px）
+    MIN_WIDTH: 480,     // 👈 分割线左限位（最小宽度 px）
     MAX_WIDTH: 850      // 👈 分割线右限位（最大宽度 px）
 };
 const PANEL_CONFIG = window.DataTool.PANEL_CONFIG;
@@ -143,7 +143,7 @@ window.DataTool.openUniversalPoseEditor = function (node, poseData) {
                             <button id="dt-t-add" style="padding:6px 15px; background:#4CAF50; color:#fff; border:none; border-radius:3px; cursor:pointer; font-weight:bold;">${T("添加")}</button>
                         </div>
                     </div>
-                    <div id="dt-tree-container" style="padding: 0 10px 20px 10px; background: #252525; box-sizing: border-box; width: 100%; max-width: 100%; overflow-x: hidden;">
+                    <div id="dt-tree-container" style="padding: 0 10px 20px 10px; background: #252525; box-sizing: border-box; width: 100%; max-width: 100%; position: relative; z-index: 5;">
                         <div style="text-align:center; color:#777; margin-top:20px; font-style:italic;">${T("(层级树引擎等待下一批次加载...)")}</div>
                     </div>
                 </div>
@@ -1309,14 +1309,17 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 const existingPanel = container.querySelector(`.dt-add-part-panel[data-p="${pIdx}"]`);
                 if (existingPanel) {
                     existingPanel.remove();
+                    const pDiv = document.getElementById(`dt-p-${pIdx}`);
+                    if (pDiv) pDiv.style.zIndex = "";
                     return;
                 }
-                container.querySelectorAll(".dt-add-part-panel").forEach(panel => panel.remove());
+                container.querySelectorAll(".dt-add-part-panel").forEach(pnl => pnl.remove());
+                container.querySelectorAll("details").forEach(d => d.style.zIndex = "");
 
                 const panel = document.createElement("div");
                 panel.className = "dt-add-part-panel";
                 panel.dataset.p = pIdx;
-                panel.style.cssText = "position: absolute; right: 10px; bottom: 100%; margin-bottom: 4px; z-index: 100; background: #2d2d2d; border: 1px solid #666; border-radius: 6px; padding: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.7); min-width: 175px; display: flex; flex-direction: column; gap: 8px;";
+                panel.style.cssText = "position: absolute; right: 10px; bottom: 100%; margin-bottom: 6px; z-index: 1000; background: #2d2d2d; border: 1px solid #666; border-radius: 6px; padding: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.7); min-width: 175px; display: flex; flex-direction: column; gap: 8px;";
 
                 panel.innerHTML = `
                     <div style="font-size: 12px; font-weight: bold; color: #eee; border-bottom: 1px solid #444; padding-bottom: 5px; display:flex; justify-content:space-between; align-items:center;">
@@ -1352,7 +1355,12 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                 `;
 
                 panel.addEventListener("click", (ev) => ev.stopPropagation());
-                panel.querySelector(".dt-app-close").onclick = () => panel.remove();
+                const closePanel = () => {
+                    panel.remove();
+                    const pDiv = document.getElementById(`dt-p-${pIdx}`);
+                    if (pDiv) pDiv.style.zIndex = "";
+                };
+                panel.querySelector(".dt-app-close").onclick = closePanel;
 
                 panel.querySelector(".dt-app-apply").onclick = () => {
                     const chkHand = panel.querySelector(".dt-app-hand").checked;
@@ -1365,13 +1373,16 @@ function initEditorEngine(node, poseData, state, updateStateCallback) {
                     if (chkFace) generatePartData(p, pIdx, 'face', { facePts });
                     if (chkFoot) generatePartData(p, pIdx, 'foot', { footPts });
 
-                    panel.remove();
+                    closePanel();
                     calcBBox(); renderTree(); drawCanvas();
                     saveHistory(); // 🔥 记录添加/覆盖部位历史
                 };
 
                 const pDiv = document.getElementById(`dt-p-${pIdx}`);
-                if (pDiv) pDiv.appendChild(panel);
+                if (pDiv) {
+                    pDiv.style.zIndex = "100";
+                    pDiv.appendChild(panel);
+                }
             });
         });
     };
