@@ -81,4 +81,52 @@ Object.assign(window.DataTool_I18N.ZH, {
     • <b>映射算法</b>: 抽帧补帧算法。
 </div>`
     },
+
+    "ContainerElementExtractor": {
+        title: "📦 容器内容提取",
+        widgets: {
+            "container_type": "容器类型",
+            "index": "元素索引",
+            "key_name": "键名",
+            "keys_list": "键名列表"
+        },
+        slot_labels: { "container": "容器", "value": "提取值" },
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">📦 节点功能说明</h3>
+    从列表/元组或字典容器中，根据索引或键名提取元素内容。<br>
+    <b>输入</b><br>容器：连入输入的列表、元组或字典等容器数据。<br>
+    <b>输出</b><br>提取值：从容器中获取的指定元素或字典值。<br>
+    <b>参数</b><br>
+    • <b>容器类型</b>: 选择输入的容器类型，支持“Sequence (序列类)”与“Map (映射类)”，序列类对应列表/元组，映射类对应字典。<br>
+    • <b>元素索引 (序列类)</b>: 欲提取元素的整型索引，支持负数（如 -1 表示最后一个元素）。<br>
+    • <b>键名 (映射类)</b>: 字典中要查询提取的键名，支持自动类型转换与匹配。<br>
+    • <b>键名列表 (映射类)</b>: 运行节点后，在此文本框中自动列出字典包含的所有可用键名。
+</div>`
+    },
+
+    "ContainerElementWriter": {
+        title: "📦 容器内容写入",
+        widgets: {
+            "container_type": "容器类型",
+            "index": "写入索引",
+            "key_name": "写入键名",
+            "keys_list": "键名列表"
+        },
+        slot_labels: { "container": "容器", "value": "写入数据" },
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">📦 节点功能说明</h3>
+    向列表/元组或字典容器的指定位置或键名写入新数据，并输出修改更新后的新容器。<br>
+    <b>输入</b><br>
+    容器：连入目标的列表、元组或字典容器。<br>
+    写入数据：需要写入容器的新数据内容。<br>
+    <b>输出</b><br>容器：修改并更新后的容器数据。<br>
+    <b>参数</b><br>
+    • <b>容器类型</b>: 选择输入的容器类型，支持“Sequence (序列类)”与“Map (映射类)”，序列类对应列表/元组，映射类对应字典。<br>
+    • <b>写入索引 (序列类)</b>: 要写入新数据的列表索引。若索引超出当前列表长度，将自动用 None 补齐扩展。<br>
+    • <b>写入键名 (映射类)</b>: 字典中要写入或覆盖更新的键名，支持自动类型匹配。<br>
+    • <b>键名列表 (映射类)</b>: 运行节点后，在此文本框中自动列出写入更新后字典的所有可用键名。
+</div>`
+    },
 });

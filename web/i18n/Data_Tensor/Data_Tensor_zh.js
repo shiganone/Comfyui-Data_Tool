@@ -109,4 +109,23 @@ Object.assign(window.DataTool_I18N.ZH, {
     • <b>背景颜色 / 遮罩颜色</b>: 背景与遮罩的渲染颜色。支持 十六进制(#000000), RGB(0,0,0) 或 十进制整数。
 </div>`
     },
+
+    "TensorDimensionLength": {
+        title: "🧮 张量维度长度",
+        widgets: {
+            "dim": "维度索引",
+            "shape_preview": "张量形状"
+        },
+        slot_labels: { "data": "数据", "len": "维度长度" },
+        help: `
+<div style="font-family: Arial, sans-serif;">
+    <h3 style="margin-top: 0; color: #4af;">🧮 节点功能说明</h3>
+    获取输入张量在指定维度上的具体长度，并可实时预览完整的张量形状结构。<br>
+    <b>输入</b><br>数据：要查询维度长度的张量数据（图像/遮罩/Latent等）。<br>
+    <b>输出</b><br>维度长度：指定维度对应的整型长度数值。<br>
+    <b>参数</b><br>
+    • <b>维度索引</b>: 欲获取长度的维度索引（如 0 为第 1 维，支持负数索引，如 -1 为最后一维）。<br>
+    • <b>张量形状</b>: 运行节点后，在此处自动显示输入张量的完整维度形状列表。
+</div>`
+    },
 });

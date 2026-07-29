@@ -20,24 +20,271 @@ function detectIsZH() {
 
 const T = (text) => window.DataTool_I18N_UI && window.DataTool_I18N_UI.T ? window.DataTool_I18N_UI.T(text) : text;
 
+// 🌟 辅助函数：安全挂接/链式回调（参考 VHS/ComfyUI 扩展标准实现） 🌟
+function chainCallback(object, property, callback) {
+    if (object == undefined) return;
+    if (property in object && object[property]) {
+        const callback_orig = object[property];
+        object[property] = function () {
+            const r = callback_orig.apply(this, arguments);
+            return callback.apply(this, arguments) ?? r;
+        };
+    } else {
+        object[property] = callback;
+    }
+}
+
+// 🌟 动态切换参数与输入插槽辅助函数 (解耦复用函数，后续其他节点亦可直接调用) 🌟
+function addFormatWidgets(nodeType, formatWidgetName = 'container_type') {
+    chainCallback(nodeType.prototype, "onNodeCreated", function () {
+        const formatWidget = this.widgets?.find(w => w.name === formatWidgetName);
+        if (!formatWidget) return;
+
+        // 从节点定义中拿到当前格式的参数表
+        const formats = this.constructor.nodeData?.input?.required?.[formatWidgetName]?.[1]?.formats;
+        if (!formats) return;
+
+        // 收集 formats 中涉及的所有动态属性名（如 "index", "key_name", "keys_list"）
+        const allFormatWidgetNames = new Set();
+        for (const k in formats) {
+            if (Array.isArray(formats[k])) {
+                for (const item of formats[k]) {
+                    if (item && item[0]) allFormatWidgetNames.add(item[0]);
+                }
+            }
+        }
+
+        // 1. 清理 ComfyUI 默认根据 INPUT_TYPES 自动创建的多余 widget 和 input 插槽
+        if (this.widgets) {
+            for (let i = this.widgets.length - 1; i >= 0; i--) {
+                const w = this.widgets[i];
+                if (w && w !== formatWidget && allFormatWidgetNames.has(w.name)) {
+                    w.onRemove?.();
+                    this.widgets.splice(i, 1);
+                }
+            }
+        }
+        if (this.inputs) {
+            for (let i = this.inputs.length - 1; i >= 0; i--) {
+                const input = this.inputs[i];
+                if (input && allFormatWidgetNames.has(input.name)) {
+                    this.removeInput(i);
+                }
+            }
+        }
+
+        const formatIdx = this.widgets.indexOf(formatWidget) + 1; // 动态参数起始位置
+        let currentCount = 0;
+
+        const update = (value) => {
+            // 智能转换与容错：兼容数字索引 0/1、数字字符串 "0"/"1" 或未定义值
+            let key = value;
+            if (typeof key === "number" && formatWidget.options?.values) {
+                key = formatWidget.options.values[key];
+            }
+            if (!key || !formats[key]) {
+                const keys = Object.keys(formats);
+                if (typeof value === "number" || (typeof value === "string" && !isNaN(Number(value)))) {
+                    key = keys[Number(value)] || keys[0];
+                } else {
+                    key = keys[0];
+                }
+            }
+            if (!formats[key]) return;
+
+            // 保持 formatWidget.value 为合法的 key 字符串
+            formatWidget.value = key;
+
+            // 1. 创建新 widget (使用 ComfyUI 的内置 app.widgets 工厂)
+            const newWidgets = [];
+            for (const wDef of formats[key]) {
+                let type = wDef[2]?.widgetType ?? wDef[1];
+                if (Array.isArray(type)) type = "COMBO";
+
+                if (app.widgets[type]) {
+                    app.widgets[type](this, wDef[0], wDef.slice(1), app);
+                    const w = this.widgets.pop();
+                    w.config = wDef.slice(1);
+                    if (w.name === "keys_list") {
+                        if (w.inputEl) {
+                            w.inputEl.readOnly = true;
+                            w.inputEl.placeholder = T("键名预览");
+                        }
+                    }
+                    newWidgets.push(w);
+                }
+            }
+
+            // 2. 替换旧 widget
+            const removed = this.widgets.splice(formatIdx, currentCount, ...newWidgets);
+            removed.forEach(w => w?.onRemove?.());
+
+            // 3. 彻底清理动态参数对应的输入插槽
+            if (this.inputs) {
+                for (let i = this.inputs.length - 1; i >= 0; i--) {
+                    const input = this.inputs[i];
+                    if (input && allFormatWidgetNames.has(input.name)) {
+                        this.removeInput(i);
+                    }
+                }
+            }
+
+            currentCount = newWidgets.length;
+            this.setSize(this.computeSize()); // 更新节点尺寸
+            this.graph?.setDirtyCanvas(true);
+        };
+
+        formatWidget.callback = function (v) {
+            update(v);
+        };
+
+        this._updateFormat = update;
+
+        // 初始执行一次 update
+        update(formatWidget.value);
+    });
+
+    // 2. 序列化 (onSerialize)
+    chainCallback(nodeType.prototype, "onSerialize", function (info) {
+        info.widgets_values = {};
+        if (!this.widgets) return;
+        for (let w of this.widgets) {
+            if (w && w.name && w.type !== "button") {
+                info.widgets_values[w.name] = w.value;
+            }
+        }
+    });
+
+    // 3. 反序列化与恢复 (onConfigure)
+    chainCallback(nodeType.prototype, "onConfigure", function (info) {
+        if (!this.widgets || !info || !info.widgets_values) return;
+
+        let widgetDict = info.widgets_values;
+
+        if (Array.isArray(widgetDict)) {
+            const dict = {};
+            for (let i = 0; i < this.widgets.length; i++) {
+                if (this.widgets[i] && this.widgets[i].name) {
+                    dict[this.widgets[i].name] = widgetDict[i];
+                }
+            }
+            widgetDict = dict;
+        }
+
+        if (typeof widgetDict === "object" && widgetDict !== null) {
+            if (formatWidgetName in widgetDict) {
+                const formatWidget = this.widgets.find(w => w.name === formatWidgetName);
+                if (formatWidget) {
+                    formatWidget.value = widgetDict[formatWidgetName];
+                    formatWidget.callback?.(formatWidget.value);
+                }
+            }
+
+            for (let w of this.widgets) {
+                if (!w || w.type === "button") continue;
+                if (w.name in widgetDict) {
+                    w.value = widgetDict[w.name];
+                    if (w.inputEl) {
+                        w.inputEl.value = w.value;
+                    }
+                }
+            }
+        }
+    });
+}
+
+const NODE_DATA_CACHE = {};
+
+const LOAD_NODE_MAP = {
+    "nlfpose_data": { name: "LoadNLFPose", widgetName: "pose_file", ext: ".json" },
+    "keypoints_data": { name: "LoadKeypoints", widgetName: "keypoints_file", ext: ".json" },
+    "mask_bin_tensor_data": { name: "LoadMaskBinTensor", widgetName: "mask_file", ext: ".pkl" },
+    "image_bin_tensor_data": { name: "LoadImageBinTensor", widgetName: "image_file", ext: ".pkl" },
+    "latent_bin_tensor_data": { name: "LoadLatentBinTensor", widgetName: "latent_file", ext: ".pkl" }
+};
+
+async function syncLoadNodeFiles(folderType, targetSelectValue, callerNode) {
+    const config = LOAD_NODE_MAP[folderType];
+    if (!config) return;
+    try {
+        const resp = await fetch(`/data_tool/list_files?type=${folderType}&ext=${config.ext}`);
+        if (!resp.ok) return;
+        const newFiles = await resp.json();
+
+        // 1. 更新当前画布上所有匹配该 folderType 的加载节点实例选项
+        if (app.graph?._nodes) {
+            for (const node of app.graph._nodes) {
+                if (node.isDataToolLoadNode && node.folderType === folderType) {
+                    const widget = node.widgets?.find(w => w.name === config.widgetName);
+                    if (widget) {
+                        const oldVal = widget.value;
+                        if (Array.isArray(widget.options?.values)) {
+                            widget.options.values.length = 0;
+                            widget.options.values.push(...newFiles);
+                        } else {
+                            widget.options = widget.options || {};
+                            widget.options.values = [...newFiles];
+                        }
+
+                        if (targetSelectValue && newFiles.includes(targetSelectValue) && (node === callerNode || !callerNode)) {
+                            widget.value = targetSelectValue;
+                        } else if (!newFiles.includes(oldVal) && newFiles.length > 0) {
+                            widget.value = newFiles[0];
+                        }
+                    }
+                }
+            }
+            app.graph.setDirtyCanvas(true);
+        }
+
+        // 2. 精准更新全局节点定义模板 (app.nodeDefs / NODE_DATA_CACHE / LiteGraph 注册表 / 实例构造器模板)
+        const nodeTypeName = config.name;
+        const registeredType = window.LiteGraph?.registered_node_types?.[nodeTypeName];
+        const defsToUpdate = [
+            NODE_DATA_CACHE[nodeTypeName],
+            app.nodeDefs?.[nodeTypeName],
+            registeredType?.nodeData,
+            registeredType?.prototype?.constructor?.nodeData,
+            callerNode?.constructor?.nodeData
+        ];
+
+        for (const def of defsToUpdate) {
+            if (!def?.input?.required?.[config.widgetName]) continue;
+            const reqConfig = def.input.required[config.widgetName];
+            if (Array.isArray(reqConfig)) {
+                if (Array.isArray(reqConfig[0])) {
+                    reqConfig[0].length = 0;
+                    reqConfig[0].push(...newFiles);
+                }
+                if (reqConfig[1] && typeof reqConfig[1] === "object" && Array.isArray(reqConfig[1].values)) {
+                    reqConfig[1].values.length = 0;
+                    reqConfig[1].values.push(...newFiles);
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("[Data_Tool] 刷新加载节点模板及实例失败:", e);
+    }
+}
+
 app.registerExtension({
     name: "DataTool.UI_Core",
 
     // 注册全局 WebSocket 监听器 (全自动刷新方案)
     setup() {
         api.addEventListener("datatool.file_saved", (event) => {
-            const updatedFolder = event.detail.folder;
-            if (!app.graph) return;
-            // 遍历当前画布上的所有节点，只让属于我们且文件夹匹配的加载节点执行局部静默重扫
-            for (const node of app.graph._nodes) {
-                if (node.isDataToolLoadNode && node.folderType === updatedFolder && node.refreshLoadNode) {
-                    node.refreshLoadNode();
-                }
+            const updatedFolder = event.detail?.folder;
+            if (updatedFolder) {
+                syncLoadNodeFiles(updatedFolder);
             }
         });
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
+        if (nodeData && nodeData.name) {
+            NODE_DATA_CACHE[nodeData.name] = nodeData;
+        }
+
         // ================= 【一】 设置宽度 =================
         if (nodeData.category && nodeData.category.includes("Data_Tool")) {
             const origComputeSize = nodeType.prototype.computeSize;
@@ -75,24 +322,20 @@ app.registerExtension({
 
                 this.isDataToolLoadNode = true; // 烙上标记，方便 WebSocket 寻找
 
-                // 🔥 核心：封装局部极速刷新方法，供按钮和 WebSocket 共同调用
-                this.refreshLoadNode = async () => {
-                    try {
-                        const resp = await fetch(`/data_tool/list_files?type=${this.folderType}&ext=${ext}`);
-                        if (resp.ok) {
-                            const newFiles = await resp.json();
-                            const widget = this.widgets?.find(w => w.name === widgetName);
-                            if (widget) {
-                                const oldVal = widget.value;
-                                widget.options.values = newFiles;
-                                // 安全校验：如果旧文件被删了，或者列表更新了，防止选定一个不存在的值
-                                if (!newFiles.includes(oldVal) && newFiles.length > 0) {
-                                    widget.value = newFiles[0];
-                                }
-                                app.graph.setDirtyCanvas(true);
-                            }
-                        }
-                    } catch (e) { console.warn("[Data_Tool] 局部刷新失败:", e); }
+                // 新创建节点或切换工作流时，若缓存模板已刷新，同步最新选项列表
+                const widget = this.widgets?.find(w => w.name === widgetName);
+                const cachedDef = NODE_DATA_CACHE[nodeData.name];
+                if (widget && cachedDef?.input?.required?.[widgetName]?.[0]) {
+                    const latestFiles = cachedDef.input.required[widgetName][0];
+                    if (Array.isArray(latestFiles)) {
+                        widget.options = widget.options || {};
+                        widget.options.values = [...latestFiles];
+                    }
+                }
+
+                // 🔥 核心：封装局部与全局刷新方法
+                this.refreshLoadNode = async (targetSelectValue) => {
+                    await syncLoadNodeFiles(this.folderType, targetSelectValue, this);
                 };
 
                 fileInput.onchange = async () => {
@@ -104,13 +347,8 @@ app.registerExtension({
                             const resp = await fetch("/data_tool/upload", { method: "POST", body: body });
                             if (resp.ok) {
                                 const data = await resp.json();
-                                const widget = this.widgets?.find(w => w.name === widgetName);
-                                if (widget) {
-                                    const newOption = `input/${data.name}`;
-                                    if (!widget.options.values.includes(newOption)) widget.options.values.push(newOption);
-                                    widget.value = newOption;
-                                    app.graph.setDirtyCanvas(true);
-                                }
+                                const newOption = `input/${data.name}`;
+                                await this.refreshLoadNode(newOption);
                             }
                         } catch (e) { alert("❌ 网络或环境出错: " + e); }
                     }
@@ -187,6 +425,104 @@ app.registerExtension({
 
                 const minSize = this.computeSize();
                 this.setSize([this.size[0], minSize[1]]);
+            };
+        }
+
+        // ================= 【三点六】 张量维度长度节点：强化通配符端口与形状显示 =================
+        if (nodeData.name === "TensorDimensionLength") {
+            if (nodeData.input && nodeData.input.required && nodeData.input.required.data) {
+                nodeData.input.required.data[0] = "*";
+            }
+
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function () {
+                const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
+
+                const shapeWidget = this.widgets?.find(w => w.name === "shape_preview");
+                if (shapeWidget) {
+                    shapeWidget.options = shapeWidget.options || {};
+                    shapeWidget.options.minHeight = 34;
+                    shapeWidget.computeSize = (width) => [width || 200, Math.max(34, shapeWidget.options.minHeight || 34)];
+                    if (shapeWidget.inputEl) {
+                        shapeWidget.inputEl.readOnly = true;
+                        shapeWidget.inputEl.placeholder = T("张量形状预览");
+                    }
+                }
+
+                this.setSize(this.computeSize());
+                return r;
+            };
+
+            const onExecuted = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function (message) {
+                if (onExecuted) onExecuted.apply(this, arguments);
+                if (message) {
+                    const textVal = message.shape_preview?.[0] || message.text?.[0] || "";
+                    const shapeWidget = this.widgets?.find(w => w.name === "shape_preview");
+                    if (shapeWidget) {
+                        shapeWidget.value = textVal;
+                        if (shapeWidget.inputEl) {
+                            shapeWidget.inputEl.value = textVal;
+                        }
+                        this.graph?.setDirtyCanvas(true);
+                    }
+                }
+            };
+        }
+
+        // ================= 【三点七】 容器提取与写入节点：动态组件切换与万能端口 =================
+        if (nodeData.name === "ContainerElementExtractor") {
+            if (nodeData.input && nodeData.input.required && nodeData.input.required.container) {
+                nodeData.input.required.container[0] = "*";
+            }
+            if (nodeData.output) {
+                nodeData.output[0] = "*";
+            }
+
+            addFormatWidgets(nodeType, "container_type");
+
+            const onExecuted = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function (message) {
+                if (onExecuted) onExecuted.apply(this, arguments);
+                if (message && message.keys_list) {
+                    const keysWidget = this.widgets?.find(w => w.name === "keys_list");
+                    if (keysWidget) {
+                        keysWidget.value = message.keys_list[0];
+                        if (keysWidget.inputEl) {
+                            keysWidget.inputEl.value = message.keys_list[0];
+                        }
+                        this.setSize(this.computeSize());
+                        this.graph?.setDirtyCanvas(true);
+                    }
+                }
+            };
+        }
+
+        if (nodeData.name === "ContainerElementWriter") {
+            if (nodeData.input && nodeData.input.required) {
+                if (nodeData.input.required.container) nodeData.input.required.container[0] = "*";
+                if (nodeData.input.required.value) nodeData.input.required.value[0] = "*";
+            }
+            if (nodeData.output) {
+                nodeData.output[0] = "*";
+            }
+
+            addFormatWidgets(nodeType, "container_type");
+
+            const onExecuted = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function (message) {
+                if (onExecuted) onExecuted.apply(this, arguments);
+                if (message && message.keys_list) {
+                    const keysWidget = this.widgets?.find(w => w.name === "keys_list");
+                    if (keysWidget) {
+                        keysWidget.value = message.keys_list[0];
+                        if (keysWidget.inputEl) {
+                            keysWidget.inputEl.value = message.keys_list[0];
+                        }
+                        this.setSize(this.computeSize());
+                        this.graph?.setDirtyCanvas(true);
+                    }
+                }
             };
         }
 

@@ -11,7 +11,7 @@ class BatchDataExtractor:
             "required": {
                 "data": (any_type, {"tooltip": "连入任意类型的数据 (图片/Mask/NLF/DWPose)"}),
                 "start_index": ("INT", {"default": 0, "min": -100000, "max": 100000, "step": 1, "tooltip": "提取的起始索引 (支持负数)"}),
-                "length": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1, "tooltip": "提取的长度 (0代表从起始索引提取至末尾/开头)"}),
+                "length": ("INT", {"default": 1, "min": 0, "max": 100000, "step": 1, "tooltip": "提取的长度/帧数 (0代表从起始索引提取至末尾/开头)"}),
                 "reverse_direction": ("BOOLEAN", {"default": False, "tooltip": "True为向左(前)提取"}),
             }
         }
@@ -293,11 +293,226 @@ class BatchFrameRateConverter:
                 return (data,)
 
 
+# ================= 📦 容器内容提取 (Container Element Extractor) =================
+class ContainerElementExtractor:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "container": (any_type, {"forceInput": True, "tooltip": "连入python基础容器类数据"}),
+                "container_type": (["Sequence (序列类)", "Map (映射类)"], {
+                    "default": "Sequence (序列类)",
+                    "formats": {
+                        "Sequence (序列类)": [
+                            ["index", "INT", {"default": 0, "min": -999999, "max": 999999, "step": 1}]
+                        ],
+                        "Map (映射类)": [
+                            ["key_name", "STRING", {"default": ""}],
+                            ["keys_list", "STRING", {"default": "", "multiline": True}]
+                        ]
+                    }
+                }),
+            },
+            "optional": {
+                "index": ("INT", {"default": 0, "min": -999999, "max": 999999, "step": 1}),
+                "key_name": ("STRING", {"default": ""}),
+            }
+        }
+    
+    RETURN_TYPES = (any_type,)
+    RETURN_NAMES = ("value",)
+    FUNCTION = "extract"
+    OUTPUT_NODE = True
+    CATEGORY = "Data_Tool/Data_Any"
+
+    def extract(self, container, container_type, **kwargs):
+        if "Sequence" in container_type:
+            try:
+                index = int(kwargs.get("index", 0))
+            except (ValueError, TypeError):
+                index = 0
+
+            if not hasattr(container, "__getitem__"):
+                raise ValueError(f"Expected a Sequence (list/tuple), but got {type(container).__name__}")
+            
+            try:
+                val = container[index]
+                return (val,)
+            except IndexError:
+                len_info = f" (length {len(container)})" if hasattr(container, "__len__") else ""
+                raise IndexError(f"List/Tuple index {index} out of range{len_info}")
+            except Exception as e:
+                raise ValueError(f"Failed to access index {index} on {type(container).__name__}: {str(e)}")
+        else:
+            key_name = kwargs.get("key_name", "")
+            
+            # 收集字典全部键名供前端展示
+            keys_str = ""
+            if isinstance(container, dict):
+                keys_str = "\n".join(str(k) for k in container.keys())
+            elif hasattr(container, "keys"):
+                try:
+                    keys_str = "\n".join(str(k) for k in container.keys())
+                except Exception:
+                    pass
+
+            if not isinstance(container, dict):
+                if hasattr(container, "__getitem__"):
+                    try:
+                        val = container[key_name]
+                        return {"ui": {"keys_list": [keys_str]}, "result": (val,)}
+                    except Exception:
+                        pass
+                raise ValueError(f"Expected a Map (dict), but got {type(container).__name__}")
+            
+            # Smart fallback for key types (int, float, bool)
+            if key_name in container:
+                val = container[key_name]
+                return {"ui": {"keys_list": [keys_str]}, "result": (val,)}
+            
+            try:
+                int_key = int(key_name)
+                if int_key in container:
+                    val = container[int_key]
+                    return {"ui": {"keys_list": [keys_str]}, "result": (val,)}
+            except ValueError:
+                pass
+                
+            try:
+                float_key = float(key_name)
+                if float_key in container:
+                    val = container[float_key]
+                    return {"ui": {"keys_list": [keys_str]}, "result": (val,)}
+            except ValueError:
+                pass
+                
+            if key_name.lower() == "true" and True in container:
+                val = container[True]
+                return {"ui": {"keys_list": [keys_str]}, "result": (val,)}
+            elif key_name.lower() == "false" and False in container:
+                val = container[False]
+                return {"ui": {"keys_list": [keys_str]}, "result": (val,)}
+            
+            # 特殊容错：如果 key_name 为空且未在字典中找到，不抛出崩溃，而是返回 (None,) 使得 UI 仍然能收到并显示 keys_list
+            if key_name == "":
+                return {"ui": {"keys_list": [keys_str]}, "result": (None,)}
+
+            raise KeyError(f"Key '{key_name}' not found in dict. Available keys: {list(container.keys())}")
+
+
+# ================= 📦 容器内容写入 (Container Element Writer) =================
+class ContainerElementWriter:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "container": (any_type, {"forceInput": True, "tooltip": "连入目标python基础容器"}),
+                "value": (any_type, {"forceInput": True, "tooltip": "连入需要写入的新数据"}),
+                "container_type": (["Sequence (序列类)", "Map (映射类)"], {
+                    "default": "Sequence (序列类)",
+                    "formats": {
+                        "Sequence (序列类)": [
+                            ["index", "INT", {"default": 0, "min": 0, "max": 999999, "step": 1}]
+                        ],
+                        "Map (映射类)": [
+                            ["key_name", "STRING", {"default": ""}],
+                            ["keys_list", "STRING", {"default": "", "multiline": True}]
+                        ]
+                    }
+                }),
+            },
+            "optional": {
+                "index": ("INT", {"default": 0, "min": 0, "max": 999999, "step": 1}),
+                "key_name": ("STRING", {"default": ""}),
+            }
+        }
+    
+    RETURN_TYPES = (any_type,)
+    RETURN_NAMES = ("container",)
+    FUNCTION = "write"
+    OUTPUT_NODE = True
+    CATEGORY = "Data_Tool/Data_Any"
+
+    def write(self, container, value, container_type, **kwargs):
+        import copy
+        
+        # Shallow copy to prevent mutating other nodes' states, but keep complex object references
+        try:
+            if isinstance(container, list):
+                new_container = list(container)
+            elif isinstance(container, tuple):
+                new_container = list(container)
+            elif isinstance(container, dict):
+                new_container = dict(container)
+            else:
+                new_container = copy.copy(container)
+        except Exception:
+            new_container = container
+
+        if "Sequence" in container_type:
+            try:
+                index = int(kwargs.get("index", 0))
+            except (ValueError, TypeError):
+                index = 0
+
+            if index < 0:
+                raise ValueError(f"Index must be non-negative for sequence writing. Got {index}")
+            
+            if not isinstance(new_container, list):
+                if isinstance(new_container, tuple):
+                    new_container = list(new_container)
+                else:
+                    new_container = [new_container]
+
+            curr_len = len(new_container)
+            if index >= curr_len:
+                # Expand with None (Python's empty/null value)
+                new_container.extend([None] * (index - curr_len + 1))
+            
+            new_container[index] = value
+            
+            if isinstance(container, tuple):
+                return (tuple(new_container),)
+            return (new_container,)
+        else:
+            key_name = kwargs.get("key_name", "")
+            if not isinstance(new_container, dict):
+                if not new_container:
+                    new_container = {}
+                else:
+                    raise ValueError(f"Expected a Map (dict), but got {type(new_container).__name__}")
+            
+            # Smart key type matching
+            actual_key = key_name
+            try:
+                int_key = int(key_name)
+                if int_key in new_container or all(isinstance(k, int) for k in new_container.keys()):
+                    actual_key = int_key
+            except (ValueError, TypeError):
+                pass
+            
+            new_container[actual_key] = value
+
+            # 收集字典全部键名供前端展示
+            keys_str = ""
+            if isinstance(new_container, dict):
+                keys_str = "\n".join(str(k) for k in new_container.keys())
+            elif hasattr(new_container, "keys"):
+                try:
+                    keys_str = "\n".join(str(k) for k in new_container.keys())
+                except Exception:
+                    pass
+
+            return {"ui": {"keys_list": [keys_str]}, "result": (new_container,)}
+
+
 NODE_CLASS_MAPPINGS = {
     "BatchDataExtractor": BatchDataExtractor,
     "BatchDataReplacer": BatchDataReplacer,
     "BatchDataCombiner": BatchDataCombiner,
     "BatchFrameRateConverter": BatchFrameRateConverter,
+    "ContainerElementExtractor": ContainerElementExtractor,
+    "ContainerElementWriter": ContainerElementWriter,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -305,4 +520,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "BatchDataReplacer": "💉 批次替换 Batch Replacer",
     "BatchDataCombiner": "🔗 批次组合 Batch Combiner",
     "BatchFrameRateConverter": "🎞️ 帧率转换 Batch Frame Rate Converter",
+    "ContainerElementExtractor": "📦 容器内容提取 Container Element Extractor",
+    "ContainerElementWriter": "📦 容器内容写入 Container Element Writer",
 }

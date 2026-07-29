@@ -6,11 +6,13 @@ import { app } from "../../../scripts/app.js"; // 🔥 用于读取 ComfyUI 原�
 window.DataTool_I18N_UI = window.DataTool_I18N_UI || { EN: {} };
 
 window.DataTool_I18N_UI.EN = {
-    // 前端控制台按钮
+    // 前端控制台按钮与占位符
     "📂 上传文件": "📂 Upload File",
     "🔄 刷新列表": "🔄 Refresh List",
     "✏️ 编辑关键点": "✏️ Edit Keypoints",
     "🔄 更新关键点": "🔄 Update Keypoints",
+    "键名预览": "Keys Preview",
+    "张量形状预览": "Tensor Shape Preview",
 
     // Pose 编辑器
     "画布缩放控制": "Canvas Zoom", "宽:": "W:", "高:": "H:", "策略:": "Mode:", "对齐:": "Align:", "X偏移:": "Offset X:", "Y偏移:": "Offset Y:", "应用": "Apply", "复位": "Reset",

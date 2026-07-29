@@ -349,12 +349,54 @@ class MaskDrawColor:
 
         return (image,)
 
+
+# ================= 🧮 张量维度长度节点 (Tensor Dimension Length) =================
+class TensorDimensionLength:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "data": (any_type, {"forceInput": True, "tooltip": "输入要计算维度长度的数据"}),
+                "dim": ("INT", {"default": 0, "min": -10, "max": 10, "step": 1, "tooltip": "欲获取长度的维度索引"}),
+                "shape_preview": ("STRING", {"default": "", "multiline": True}),
+            }
+        }
+    
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("len",)
+    FUNCTION = "get_dim_length"
+    OUTPUT_NODE = True
+    CATEGORY = "Data_Tool/Data_Tensor"
+
+    def get_dim_length(self, data, dim=0, shape_preview=""):
+        import torch
+        import numpy as np
+        
+        if not (isinstance(data, (torch.Tensor, np.ndarray)) or hasattr(data, "shape")):
+            raise TypeError(f"输入数据必须是张量 (Tensor)，但收到的是: {type(data).__name__}")
+        
+        try:
+            shape = tuple(data.shape)
+        except Exception as e:
+            raise TypeError(f"无法获取输入数据的 shape 属性: {str(e)}")
+
+        shape_str = str(list(shape))
+
+        if dim < -len(shape) or dim >= len(shape):
+            raise IndexError(f"维度索引 {dim} 超出张量形状 {list(shape)} 的有效维度范围 (维度数: {len(shape)})")
+
+        dim_len = int(shape[dim])
+
+        return {"ui": {"text": [shape_str], "shape_preview": [shape_str]}, "result": (dim_len,)}
+
+
 NODE_CLASS_MAPPINGS = {
     "TensorExtractor": TensorExtractor,
     "TensorReplacer": TensorReplacer,
     "TensorFolder": TensorFolder,
     "MaskDrawColor": MaskDrawColor,
     "ExtraMaskDraw": ExtraMaskDraw,
+    "TensorDimensionLength": TensorDimensionLength,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -363,4 +405,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "TensorFolder": "🗂️ 张量折叠 Tensor Folder",
     "MaskDrawColor": "🎨 遮罩绘制 Mask Draw Color",
     "ExtraMaskDraw": "附加遮罩绘制 Extra Mask Draw",
+    "TensorDimensionLength": "🧮 张量维度长度 Tensor Dimension Length",
 }
